@@ -4,6 +4,8 @@ package graphic
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 import javax.media.opengl._
+import javax.media.opengl.fixedfunc.GLMatrixFunc
+import javax.media.opengl.glu.GLU
 import java.awt.Shape
 import java.awt.geom.Arc2D
 import java.awt.geom.Ellipse2D
@@ -23,7 +25,7 @@ class GLCanvas extends Canvas with GLTextRenderer {
   private var bufferByte : ByteBuffer = null
   private var verts : Array[Float] = new Array[Float](3620)
   private var tmpverts : Array[Float] = new Array[Float](3620)
-  var gl : GL2 = null
+  private[graphic] var gl: GL2 = null
   private var vbo : VBuffer = new VBuffer
   private var vertsNumTmp:Int = 0
   private var vertsNum:Int = 0
@@ -80,10 +82,30 @@ class GLCanvas extends Canvas with GLTextRenderer {
   // TODO: respect AA and fractional metrics settings
   def fontRenderContext = new FontRenderContext(null, true, false)
 
-  def init(gl2:GL2) = {
-    gl = gl2
+  private[graphic] def init(gl: GL2) = {
+    this.gl = gl
+    gl.glEnable(GL.GL_MULTISAMPLE)
+    //gl.glDisable(GL.GL_DEPTH_TEST)
+    //gl.glBlendFunc(GL.GL_SRC_ALPHA_SATURATE, GL.GL_ONE)
+    gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)      
+    gl.glEnable(GL.GL_BLEND)
+    //gl.glEnable(javax.media.opengl.GL2GL3.GL_POLYGON_SMOOTH)
+    //gl.glHint(javax.media.opengl.GL2GL3.GL_POLYGON_SMOOTH_HINT, GL.GL_NICEST)
+
+    gl.glEnableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
     vbo.init(gl, bufferId, verts, bufferData, floatSize)
     gl.glColor3f(0, 0, 0)
+  }
+  
+  private[graphic] def resize(width: Int, height: Int) {
+    val glu = new GLU
+    gl.glViewport(0, 0, width, height)
+    gl.glMatrixMode(GLMatrixFunc.GL_PROJECTION)
+    gl.glLoadIdentity()
+    glu.gluOrtho2D(0.0, width, height, 0.0)
+    gl.glClearStencil(0)
+    gl.glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
+    gl.glLoadIdentity()
   }
 
   def fillRoundRectangle(x:Int, y:Int, w:Int, h:Int, arcw:Float, arch:Float) = {
