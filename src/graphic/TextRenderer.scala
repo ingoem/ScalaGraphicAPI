@@ -3,20 +3,14 @@
 package graphic
 
 import java.awt.Font
-import com.jogamp.opengl.util.awt.TextRenderer
+import com.sun.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
 import java.awt.Shape
 import java.awt.geom.PathIterator
 import javax.media.opengl.GL2
 import java.awt.geom.CubicCurve2D
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 
-class FontText {
-
-  val BOLD:Int = Font.BOLD
-  val ITALIC:Int = Font.ITALIC
-  val PLAIN:Int = Font.PLAIN
-  val ROMAN_BAELINE = Font.ROMAN_BASELINE
-  val TRUETYPE_FONT = Font.TRUETYPE_FONT
+trait GLTextRenderer { self: GLCanvas =>
   val ANCH_LEFT = Int.MinValue
   val ANCH_RIGHT = Int.MinValue+1
   val ANCH_MID = Int.MinValue+2
@@ -24,30 +18,16 @@ class FontText {
   val ANCH_TOP = Int.MinValue+4
   var anchorW = ANCH_LEFT
   var anchorH = ANCH_BOT
-  var tr:Float=0 // text colors
-  var tg:Float=0
-  var tb:Float=0
-  var ta:Float=1.0f
-  var gl:GL2 = null
   var x1 = 0; var y1=0; var x2=0; var y2=0;
   var ctrlx1=0; var ctrly1=0; var ctrlx2=0; var ctrly2=0;
   private var curve:CubicCurve2D = new CubicCurve2D.Float
-  private var font:Font = new Font("Times New Roman", Font.BOLD, 14)
-  private var renderer = new TextRenderer(font, false, false)
-
-  def createFontText(gl:GL2, fontName:String, fontType:Int, fontSize:Int, antialiased:Boolean) = {
-    this.gl = gl
-    font = new Font(fontName, fontType, fontSize)
-    renderer = new TextRenderer(font, antialiased, false)
-  }
-
-  def setTextColor(r:Float, g:Float, b:Float, a:Float) = {
-    tr = r; tg = g; tb = b; ta = a;
-  }
-
-  def setTextColor(r:Float, g:Float, b:Float) = {
-    tr = r; tg = g; tb = b; ta = 1.0f;
-  }
+  
+  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 14)
+  private var _font = DefaultFont
+  def font: Font = _font
+  def font_=(f: Font) = _font = f
+  
+  private var renderer = new JOGLTextRenderer(font, true, false)
 
   def drawText(text:String, x:Int, y:Int) = {
     var w = anchorW
@@ -76,7 +56,7 @@ class FontText {
     gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
     gl.getGL2().glLoadIdentity()
     gl.glTranslatef(x-w, y-h, 0)
-    renderer.setColor(tr, tg, tb, ta)
+    renderer.setColor(color)
     renderer.draw(text, 0, 0)
     renderer.endRendering
     gl.glPopMatrix
@@ -117,7 +97,7 @@ class FontText {
     gl.glTranslatef(x, y, 0)    
     gl.glRotatef(angle, 0, 0, 1)
     gl.glTranslatef(-w, -h, 0)
-    renderer.setColor(tr, tg, tb, ta)
+    renderer.setColor(color)
     renderer.draw(text, 0, 0)
     renderer.endRendering
     gl.glPopMatrix
@@ -195,7 +175,7 @@ class FontText {
                 nextAdv = 0
               gl.glPushMatrix
                 renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
-                renderer.setColor(tr, tg, tb, ta)
+                renderer.setColor(color)
                 gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
                 gl.getGL2().glLoadIdentity()
                 gl.glTranslatef(x, y, 0)
@@ -219,5 +199,5 @@ class FontText {
       it.next
     }       
   }
-
+  
 }

@@ -5,14 +5,14 @@ import javax.media.opengl.glu.*;
 
 
 public class Tess implements GLUtessellatorCallback
-{  
-  private GLU glu; 
-  GLUtessellator tobj;  
+{
+  private GLU glu;
+  GLUtessellator tobj;
 
   public int WINDING_POSITIVE = GLU.GLU_TESS_WINDING_POSITIVE;
 
     public Tess(GLU glu) {
-        this.glu = glu;        
+        this.glu = glu;
         tobj = glu.gluNewTess();
         glu.gluTessProperty(tobj, GLU.GLU_TESS_WINDING_RULE, GLU.GLU_TESS_WINDING_POSITIVE);
         glu.gluTessCallback(tobj, GLU.GLU_TESS_VERTEX, this);

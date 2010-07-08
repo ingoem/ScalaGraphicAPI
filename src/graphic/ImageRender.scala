@@ -1,8 +1,8 @@
 
 package graphic
 
-import com.jogamp.opengl.util.texture.Texture
-import com.jogamp.opengl.util.texture.TextureIO
+import com.sun.opengl.util.texture.Texture
+import com.sun.opengl.util.texture.TextureIO
 import java.io.IOException
 import java.io.InputStream
 import javax.media.opengl._

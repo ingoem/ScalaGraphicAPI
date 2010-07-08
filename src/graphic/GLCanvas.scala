@@ -14,9 +14,9 @@ import java.awt.geom.Rectangle2D
 import java.awt.geom.RoundRectangle2D
 import java.awt.font.FontRenderContext
 import java.awt.font.GlyphVector
-import java.awt.Font
+import java.awt.{Font, Color, BasicStroke}
 
-class Scala2DGraphic() {
+class GLCanvas extends Canvas with GLTextRenderer {
   private var bufferId : Array[Int] = Array(0)
   var floatSize : Int = 4
   private var bufferData : FloatBuffer = FloatBuffer.allocate(3620)
@@ -38,7 +38,6 @@ class Scala2DGraphic() {
   private val arc2D = new Arc2D.Float()
   private val mainPath = new Path2D.Float()
 
-  var width:Float = 5
   private var i:Int = 0
   private var ind:Int = 0
   private var nx:Float = 0
@@ -47,18 +46,10 @@ class Scala2DGraphic() {
   private var cury:Float= 0
   private var startInd:Int = 0
   private var endInd:Int = 0
-  val CAP_FLAT = 0
-  val CAP_SQUARE = 2
-  val CAP_ROUND = 1
-  val JOIN_BEVEL = 2
-  val JOIN_MITER = 0
-  val JOIN_ROUND = 1
   val ARC_OPEN = Arc2D.OPEN
   val ARC_CHORD = Arc2D.CHORD
   val ARC_PIE = Arc2D.PIE
 
-  private var cap_style = CAP_ROUND
-  private var join_style = JOIN_ROUND
   val miter_limit = 100
   var roundness:Float = 5
   private var arcInd:Int = 0
@@ -67,6 +58,27 @@ class Scala2DGraphic() {
   val WIDTH_MAX = 20
 
   val tess = new Tesselator
+  
+  private var _stroke = new BasicStroke
+  def stroke: BasicStroke = _stroke
+  def stroke_=(s: BasicStroke) {
+    val w = s.getLineWidth
+    _stroke = if(w > WIDTH_MIN && w < WIDTH_MAX) s
+              else new BasicStroke(math.max(w, math.min(WIDTH_MAX, w)), s.getEndCap, s.getLineJoin, 
+                                   s.getMiterLimit, s.getDashArray, s.getDashPhase)
+  }
+  
+  private def lineWidth = _stroke.getLineWidth
+  
+  private var _color = Color.BLACK
+  def color: Color = _color
+  def color_=(c: Color) = {
+    _color = c
+    gl.glColor4ub(c.getRed.toByte, c.getGreen.toByte, c.getBlue.toByte, c.getAlpha.toByte)
+  }
+  
+  // TODO: respect AA and fractional metrics settings
+  def fontRenderContext = new FontRenderContext(null, true, false)
 
   def init(gl2:GL2) = {
     gl = gl2
@@ -81,20 +93,17 @@ class Scala2DGraphic() {
     vbo.drawBuffer(gl, GL2.GL_POLYGON, vertsNum)
   }
 
-  def outlineRoundRectangle(x:Int, y:Int, w:Int, h:Int, arcw:Float, arch:Float, width:Float) = {
-    if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = width
+  def outlineRoundRectangle(x:Int, y:Int, w:Int, h:Int, arcw:Float, arch:Float) = {
     rrect.setRoundRect(x, y, w, h, arcw, arch)
-    join_style = JOIN_BEVEL
-    cap_style = CAP_FLAT
     endsAtStart = true
     calcFigure(rrect, true)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def strokeRoundRectangle(x:Int, y:Int, w:Int, h:Int, arcw:Float, arch:Float, width:Float, cap:Int, join:Int) = {
+  def strokeRoundRectangle(x:Int, y:Int, w:Int, h:Int, arcw:Float, arch:Float) = {
     rrect.setRoundRect(x, y, w, h, arcw, arch)
-    createStroke(rrect, width, cap, join)
+    createStroke(rrect)
   }
 
   def fillRectangle(x:Int, y:Int, w:Int, h:Int) = {
@@ -104,58 +113,39 @@ class Scala2DGraphic() {
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def outlineRectangle(x:Int, y:Int, w:Int, h:Int, join:Int, width:Float) = {
-    if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = width
+  def outlineRectangle(x:Int, y:Int, w:Int, h:Int, width:Float) = {
     rect.setRect(x, y, w, h)
-    if (join>=0 && join<3)
-      join_style = join
-    else
-      join_style = JOIN_BEVEL
-    cap_style = CAP_FLAT
     endsAtStart = true
     calcFigure(rect, true)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def strokeRectangle(x:Int, y:Int, w:Int, h:Int, width:Float, cap:Int, join:Int) = {
+  def strokeRectangle(x:Int, y:Int, w:Int, h:Int) = {
     rect.setRect(x, y, w, h)
-    createStroke(rect, width, cap, join)
+    createStroke(rect)
   }
 
   def outlineArc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
-                 angleExtend:Float, cap:Int, join:Int, width:Float, arcType:Int) = {
-    arc(x, y, w, h, angleStart, angleExtend, cap, join, width, arcType, true)
+                 angleExtend:Float, arcType:Int) = {
+    arc(x, y, w, h, angleStart, angleExtend, arcType, true)
   }
 
   def fillArc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
-                 angleExtend:Float, cap:Int, join:Int, width:Float, arcType:Int) = {
+                 angleExtend:Float, arcType:Int) = {
     var at = arcType
     if(at==ARC_OPEN) at = ARC_CHORD
-    arc(x, y, w, h, angleStart, angleExtend, cap, join, width, at, false)
+    arc(x, y, w, h, angleStart, angleExtend, at, false)
   }
 
   private def arc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
-                 angleExtend:Float, cap:Int, join:Int, width:Float, arcType:Int, outline:Boolean) = {
-    if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = width
+                 angleExtend:Float, arcType:Int, outline:Boolean) = {
     arc2D.setArc(x-w/2, y-h/2, w, h, angleStart, angleExtend, arcType)
-    // no visual effect for arc type OPEN
-    if (join>=0 && join<3)
-      join_style = join
-    else
-      join_style = JOIN_BEVEL
-    // no visual effect for arc type CHORD, PIE
-    if (cap>=0 && cap<3)
-      cap_style = cap
-    else
-      cap_style = CAP_FLAT
     if(arcType != ARC_OPEN){
       endsAtStart = true
-      cap_style = CAP_FLAT
       calcArcOutline(arc2D, outline)
     } else {
       endsAtStart = false
-      join_style = JOIN_BEVEL
       calcFigure(arc2D, true)
     }
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
@@ -165,9 +155,9 @@ class Scala2DGraphic() {
   }
 
   def strokeArc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
-      angleExtend:Float, cap:Int, join:Int, width:Float, arcType:Int) = {
+      angleExtend:Float, arcType:Int) = {
         arc2D.setArc(x-w/2, y-h/2, w, h, angleStart, angleExtend, arcType)
-        createStroke(arc2D, width, cap, join)
+        createStroke(arc2D)
       }
 
   def fillEllipse(x:Int, y:Int, w:Int, h:Int) = {    
@@ -179,39 +169,29 @@ class Scala2DGraphic() {
   }
 
   def outlineEllipse(x:Int, y:Int, w:Int, h:Int, width:Float) = {
-    if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = width
     ellipse.setFrame(x-w/2, y-h/2, w, h)
-    join_style = JOIN_BEVEL
-    cap_style = CAP_FLAT
     endsAtStart = true
     calcFigure(ellipse, true)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def strokeEllipse(x:Int, y:Int, w:Int, h:Int, width:Float, cap:Int, join:Int) = {
+  def strokeEllipse(x:Int, y:Int, w:Int, h:Int) = {
     ellipse.setFrame(x-w/2, y-h/2, w, h)
-    createStroke(ellipse, width, cap, join)
+    createStroke(ellipse)
   }
 
-  def line(x1:Float, y1:Float, x2:Float, y2:Float, cap:Int, width:Float) = {
+  def line(x1:Float, y1:Float, x2:Float, y2:Float, width:Float) = {
     line2D.setLine(x1, y1, x2, y2)
-    if(width >= WIDTH_MIN && width <= WIDTH_MAX) this.width = width
-    else this.width = 5
-      join_style = JOIN_BEVEL
-    if (cap>=0 && cap<3)
-      cap_style = cap
-    else
-      cap_style = CAP_FLAT
     endsAtStart = false
     calcFigure(line2D, true)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def strokeLine(x1:Float, y1:Float, x2:Float, y2:Float, width:Float, cap:Int, join:Int) = {
+  def strokeLine(x1:Float, y1:Float, x2:Float, y2:Float) = {
     line2D.setLine(x1, y1, x2, y2)
-    createStroke(line2D, width, cap, join)
+    createStroke(line2D)
   }
 
   def fillTriangle(x1:Int, y1:Int, x2:Int, y2:Int, x3:Int, y3:Int) = {
@@ -233,26 +213,27 @@ class Scala2DGraphic() {
     triPath.lineTo(x3, y3)
     triPath.lineTo(x1, y1)
     triPath.closePath
-    if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = width
-    if (join>=0 && join<3)
-      join_style = join
-    else
-      join_style = JOIN_BEVEL
-    cap_style = CAP_FLAT
     endsAtStart = true
     calcFigure(triPath, true)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP , vertsNum)
   }
 
-  def strokeTriangle(x1:Int, y1:Int, x2:Int, y2:Int, x3:Int, y3:Int, width:Float, cap:Int, join:Int) = {
+  def strokeTriangle(x1:Int, y1:Int, x2:Int, y2:Int, x3:Int, y3:Int) = {
     triPath.reset
     triPath.moveTo(x1, y1)
     triPath.lineTo(x2, y2)
     triPath.lineTo(x3, y3)
     triPath.lineTo(x1, y1)
     triPath.closePath
-    createStroke(triPath, width, cap, join)
+    createStroke(triPath)
+  }
+  
+  def stroke(p: Shape) {
+    endsAtStart = false
+    calcFigure(p, true)
+    bufferData = vbo.mapBuffer(gl, bufferId, verts)
+    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
   def charOutline(fontName:String, fontSize:Int, text:Char, x:Int, y:Int) = {
@@ -260,9 +241,6 @@ class Scala2DGraphic() {
     val font:Font = new Font(fontName, Font.BOLD, fontSize)
     var glyph:GlyphVector = font.createGlyphVector(frc, text.toString)
     var shape = glyph.getOutline
-    join_style = JOIN_MITER
-    cap_style = CAP_FLAT
-    this.width = 1
     calcFigure(shape, true)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     gl.glPushMatrix
@@ -287,26 +265,19 @@ class Scala2DGraphic() {
   def pathReset() = {
     mainPath.reset
   }
-  def pathDraw(cap:Int, join:Int, width:Float) = {
+
+  
+  def pathDraw() = {
     mainPath.closePath
-    if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = width
-    if (join>=0 && join<3)
-      join_style = join
-    else
-      join_style = JOIN_BEVEL
-    if (cap>=0 && cap<3)
-      cap_style = cap
-    else
-      cap_style = CAP_FLAT
     endsAtStart = false
     calcFigure(mainPath, true)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
     //mainPath.reset
   }
-  def pathDrawStroke(cap:Int, join:Int, width:Float) = {
+  def pathDrawStroke() = {
     mainPath.closePath
-    createStroke(mainPath, width, cap, join)
+    createStroke(mainPath)
     mainPath.reset    
   }
   def pathDrawFill() = {
@@ -437,44 +408,31 @@ class Scala2DGraphic() {
     vertsNum = vertsNumTmp
   }
 
-  private def createStroke(fig:Shape, w:Float, cap:Int, join:Int) = {
-    if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = w*2.0f
-    if (join>=0 && join<3)
-      join_style = join
-    else
-      join_style = JOIN_BEVEL
-    if (cap>=0 && cap<3)
-      cap_style = cap
-    else
-      cap_style = CAP_FLAT
-    getStroke(fig, this.width, cap, join)
+  private def createStroke(fig:Shape) = {
+    //if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = w*2.0f
+    getStroke(fig)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  private def getStroke(figure:Shape, width:Float, cap:Int, join:Int) = {
-    val sp = new Path2D.Float
-    var dash:Array[Float] = Array(8, 10)
-    var stroke = new java.awt.BasicStroke(width, cap, join, 50, dash, 0)
-    var path = stroke.createStrokedShape(figure).getPathIterator(null, 1.0f)
-    var z:Int = 0
+  private def getStroke(figure:Shape) {
+    val path = stroke.createStrokedShape(figure).getPathIterator(null, 1.0f)
+    var z = 0
     i=0
-    while(!path.isDone){      
+    while(!path.isDone) {      
       path.currentSegment(point) match {
-      case java.awt.geom.PathIterator.SEG_CUBICTO => println("cubic to")
-      case java.awt.geom.PathIterator.SEG_QUADTO => println("quad to")
-      case java.awt.geom.PathIterator.SEG_MOVETO => {
+        case java.awt.geom.PathIterator.SEG_CUBICTO => println("cubic to")
+        case java.awt.geom.PathIterator.SEG_QUADTO => println("quad to")
+        case java.awt.geom.PathIterator.SEG_MOVETO =>
           z = 0
           tmpverts(z) = point(0)
           tmpverts(z+1) = point(1)
           z+=2
-        }
-      case java.awt.geom.PathIterator.SEG_LINETO => {
+        case java.awt.geom.PathIterator.SEG_LINETO => 
           tmpverts(z) = point(0)
           tmpverts(z+1) = point(1)
           z+=2
-        }
-      case java.awt.geom.PathIterator.SEG_CLOSE => {
+        case java.awt.geom.PathIterator.SEG_CLOSE => 
           var st = 0
           var end = z
           while(st < end) {
@@ -491,15 +449,36 @@ class Scala2DGraphic() {
           verts(i+1) = verts(i-1)
           i+=2
       }
-      }
       path.next
     }
     vertsNum = i/2
     i=0
     ind = 0
-    sp
   }
 
+  /* TODO: Example of a cleanly written method w/ pattern match
+  private def storeOutline(shape: Shape) {
+    val path = shape.getPathIterator(null, 1.0f)
+    i=0
+    while(!path.isDone){
+      path.currentSegment(point) match {
+        case PathIterator.SEG_MOVETO =>
+          tmpverts(i) = point(0)
+          tmpverts(i+1) = point(1)
+          i+=2
+        case PathIterator.SEG_LINETO =>
+          tmpverts(i) = point(0)
+          tmpverts(i+1) = point(1)
+          i+=2
+        case PathIterator.SEG_CLOSE =>
+          // TODO???
+        case _ => 
+          error("FlatteningPathIterator contract violated")
+      }
+      path.next()
+    }
+  }*/ 
+  
   private def calcFigure(figure:Shape, outline:Boolean) = {
     var path = figure.getPathIterator(null, 1.0f)
     i=0
@@ -675,28 +654,28 @@ if(outline == true) {
     var pw:Float = 0.0f;
 
     if (dx == 0.0)
-      pw = width / scala.Math.abs(dy);
+      pw = lineWidth / scala.Math.abs(dy);
     else if (dy == 0.0)
-      pw = width / scala.Math.abs(dx);
+      pw = lineWidth / scala.Math.abs(dx);
     else
-      pw = width / scala.Math.sqrt(dx*dx + dy*dy).floatValue;
+      pw = lineWidth / scala.Math.sqrt(dx*dx + dy*dy).floatValue;
 
     nx = -dy * pw;
     ny = dx * pw;
 
-    cap_style match {
-      case CAP_FLAT => {
+    stroke.getEndCap match {
+      case BasicStroke.CAP_BUTT => {
           verts(i) = curx + nx
           verts(i+1) = cury + ny
           i+=2
       }
-      case CAP_SQUARE => {
+      case BasicStroke.CAP_SQUARE => {
           verts(i) = curx - ny + nx
           verts(i+1) = cury + nx +ny
           i+=2
           emitLineSeg(curx - ny, cury + nx, nx, ny)
       }
-      case CAP_ROUND => {
+      case BasicStroke.CAP_ROUND => {
           arcPoints(curx, cury, curx+nx, cury+ny, curx-nx, cury-ny)
           var count = i + arcInd + 2
           i = count
@@ -742,18 +721,18 @@ if(outline == true) {
     var pw:Float = 0.0f
 
     if (dx == 0)
-        pw = width / scala.Math.abs(dy)
+        pw = lineWidth / math.abs(dy)
     else if (dy == 0)
-        pw = width / scala.Math.abs(dx)
+        pw = lineWidth / math.abs(dx)
     else
-      pw = width / scala.Math.sqrt(dx*dx + dy*dy).floatValue
+      pw = lineWidth / math.sqrt(dx*dx + dy*dy).floatValue
 
     nx = -dy * pw
     ny = dx * pw
 
-    join_style match {
-      case JOIN_BEVEL => {}
-      case JOIN_MITER => {
+    stroke.getLineJoin match {
+      case BasicStroke.JOIN_BEVEL => {}
+      case BasicStroke.JOIN_MITER => {
           val count = i
           val prevNvx = verts(count-2) - curx
           val prevNvy = verts(count-1) - cury
@@ -786,7 +765,7 @@ if(outline == true) {
             i+=2
         }
       }
-      case JOIN_ROUND => {
+      case BasicStroke.JOIN_ROUND => {
           val prevNvx = verts(i - 2) - curx
           val prevNvy = verts(i - 1) - cury
           var ii:Int = 0
@@ -816,8 +795,8 @@ if(outline == true) {
     var dx2 = toX - cx
     var dy2 = toY - cy
 
-    val sin_theta = scala.Math.sin(scala.Math.Pi / roundness).floatValue
-    val cos_theta = scala.Math.cos(scala.Math.Pi / roundness).floatValue
+    val sin_theta = math.sin(math.Pi / roundness).toFloat
+    val cos_theta = math.cos(math.Pi / roundness).toFloat
 
     arcInd = 0    
     while (dx1 * dy2 - dx2 * dy1 < 0) {
@@ -868,51 +847,38 @@ if(outline == true) {
     i+=2
 }
 
-  private def endCap() = {
-    cap_style match {
-      case CAP_FLAT => {
-      }
-      case CAP_SQUARE => {
-          emitLineSeg(curx+ny, cury-nx, nx, ny)
-      }
-      case CAP_ROUND => {
-          arcPoints(curx, cury, verts(i-2), verts(i-1), verts(i-4), verts(i-3) )
-          var front:Int = 1
-          var end:Int = (arcInd-2) / 2
-          while (front < end) {
-            verts(i) =  arcVerts(2*end-2)
-            verts(i+1) = arcVerts(2*end-1)
+  private def endCap() {
+    stroke.getEndCap match {
+      case BasicStroke.CAP_BUTT => 
+      case BasicStroke.CAP_SQUARE => 
+        emitLineSeg(curx+ny, cury-nx, nx, ny)
+      case BasicStroke.CAP_ROUND => 
+        arcPoints(curx, cury, verts(i-2), verts(i-1), verts(i-4), verts(i-3) )
+        var front:Int = 1
+        var end:Int = (arcInd-2) / 2
+        while (front < end) {
+          verts(i) =  arcVerts(2*end-2)
+          verts(i+1) = arcVerts(2*end-1)
+          i+=2
+          end-=1
+          if (front < end) {
+            verts(i) = arcVerts(2*front)
+            verts(i+1) = arcVerts(2*front+1)
             i+=2
-            end-=1
-            if (front < end) {
-              verts(i) = arcVerts(2*front)
-              verts(i+1) = arcVerts(2*front+1)
-              i+=2
-              front+=1
-            }
+            front+=1
+          }
         }
-            verts(i) = verts(i-2)
-            verts(i+1) = verts(i-1)
-            i+=2
-      }
+        verts(i) = verts(i-2)
+        verts(i+1) = verts(i-1)
+        i+=2
     }
   }
-
-  def setColor(r:Float, g:Float, b:Float) = {
-    gl.glColor4f(r, g, b, 1.0f)
-  }
-  def setColor(r:Float, g:Float, b:Float, a:Float) = {
-    gl.glColor4f(r, g, b, a)
-  }
-  def clearCanvas(r:Float, g:Float, b:Float) = {
-    gl.glClearColor(r, g, b, 1.0f)
+  
+  def clear(c: Color) {
+    gl.glClearColor(c.getRed/255f, c.getGreen/255f, c.getBlue/255f, c.getAlpha/255f)
     gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
   }
-  def clearCanvas(r:Float, g:Float, b:Float, a:Float) = {
-    gl.glClearColor(r, g, b, a)
-    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
-  }
-  def deinit() = {
+  def deinit() {
     gl.glDeleteBuffers(1, bufferId, 0)
   }
 }
