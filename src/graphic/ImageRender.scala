@@ -8,7 +8,6 @@ import java.io.InputStream
 import javax.media.opengl._
 
 class ImageRender {
-
   val MODE_BLEND = GL.GL_BLEND
   val MODE_MODULATE  = GL2ES1.GL_MODULATE
   val MODE_DECAL = GL2ES1.GL_DECAL

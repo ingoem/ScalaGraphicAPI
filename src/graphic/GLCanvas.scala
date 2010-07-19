@@ -65,6 +65,7 @@ class GLCanvas extends Canvas with GLTextRenderer {
   def stroke: BasicStroke = _stroke
   def stroke_=(s: BasicStroke) {
     val w = s.getLineWidth
+    // TODO: do we need the following check?
     _stroke = if(w > WIDTH_MIN && w < WIDTH_MAX) s
               else new BasicStroke(math.max(w, math.min(WIDTH_MAX, w)), s.getEndCap, s.getLineJoin, 
                                    s.getMiterLimit, s.getDashArray, s.getDashPhase)
