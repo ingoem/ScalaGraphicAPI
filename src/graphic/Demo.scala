@@ -11,13 +11,16 @@ import javax.media.opengl.GLEventListener
 import javax.media.opengl.GLProfile
 import javax.media.opengl.awt.{GLCanvas => JOGLCanvas}
 import javax.swing.JFrame
+import com.sun.opengl.util.texture.Texture
+import com.sun.opengl.util.texture.TextureIO
+import java.awt.font.FontRenderContext
+import java.io.IOException
+import java.io.InputStream
 
 abstract class Demo extends JFrame {
-  val canvas = new GLCanvas
-
-  //var text:FontText = new FontText
-  var image:ImageRender = new ImageRender
-  //var shader:Shader = new Shader
+  val canvas = new GLCanvas  
+  var image1: Texture = null
+  val shader: Shader = new Shader
 
   def main(args: Array[String]) {
     val profile = GLProfile.getDefault
@@ -26,8 +29,7 @@ abstract class Demo extends JFrame {
     caps.setSampleBuffers(true)
     caps.setNumSamples(4)
     caps.setStencilBits(8)
-    caps.setDoubleBuffered(true)
-    println(caps.getSampleBuffers)
+    caps.setDoubleBuffered(true)    
     println(caps.toString)
     val joglCanvas = new JOGLCanvas(caps)
     joglCanvas.addGLEventListener(OGLEventListener)
@@ -36,33 +38,49 @@ abstract class Demo extends JFrame {
     setSize(500, 500)
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
     joglCanvas.requestFocusInWindow()
-    setVisible(true)   
-    
-    val anim = new FPSAnimator(joglCanvas, 80)
+    setVisible(true)
+
+    val anim = new FPSAnimator(joglCanvas, 50)
+    //val anim = new Animator(joglCanvas)
+    //anim.setRunAsFastAsPossible(true)
     anim.start
   }
-  
+
   object OGLEventListener extends GLEventListener {
     def init(drawable: GLAutoDrawable) {
       val gl = drawable.getGL.getGL2
-      canvas.init(gl)
-      image.loadImage(gl, "CoffeeBean.bmp", "bmp")
-      //shader.buildShader(gl)
-      //shader.compileShaders(null, null)
+      canvas.init(gl)      
+      shader.buildShader(gl)
+      shader.compileShadersFromFile("data/solid.fs", "data/solid.vs")
+      image1 = loadImage("data/CoffeeBean.bmp", "bmp")
     }
 
-    def display(drawable: GLAutoDrawable) { 
+    def display(drawable: GLAutoDrawable) {      
       canvas.gl = drawable.getGL.getGL2
-      canvas.resize(drawable.getWidth, drawable.getHeight)
-      draw(canvas)
+      canvas.resize(drawable.getWidth, drawable.getHeight)      
+      draw(canvas)      
     }
 
     def reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {}
     def dispose(drawable: GLAutoDrawable) {}
   }
-  
-  def textOutline(g: Canvas, str: String, x: Int, y: Int): Shape = 
-    g.font.createGlyphVector(g.fontRenderContext, str).getOutline(x,y)
-  
+
+  def textOutline(f: Font, g: Canvas, str: String, x: Int, y: Int): Shape =
+    f.createGlyphVector(new FontRenderContext(null, false, false), str).getOutline(x,y)
+
+  def loadImage(name: String, sufix: String): Texture = {
+    val f: InputStream = getClass.getResourceAsStream(name)
+    try {
+      val img = TextureIO.newTexture(f, true, sufix)
+      return img
+    } catch {
+      case ioe: IOException => {
+          error("Image loading: can't find file "+name+"\n"+ioe.toString)
+        }
+      case e: Exception => { error("Image loading: " + e.toString) }
+    }
+    return null
+  }
+
   def draw(canvas: GLCanvas)
 }

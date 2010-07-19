@@ -1,5 +1,3 @@
-
-
 package graphic
 
 import java.awt.Font
@@ -18,26 +16,44 @@ trait GLTextRenderer { self: GLCanvas =>
   val ANCH_TOP = Int.MinValue+4
   var anchorW = ANCH_LEFT
   var anchorH = ANCH_BOT
-  var x1 = 0; var y1=0; var x2=0; var y2=0;
-  var ctrlx1=0; var ctrly1=0; var ctrlx2=0; var ctrly2=0;
-  private var curve:CubicCurve2D = new CubicCurve2D.Float
   
-  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 14)
+  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 24)
   private var _font = DefaultFont
   def font: Font = _font
-  def font_=(f: Font) = _font = f
-  
-  private var renderer = new JOGLTextRenderer(font, true, false)
+  //def font_=(f: Font) = _font = f
+  def font_=(f: Font) = {
+    if(renderer.getFont.equals(f) == false ||
+       _useFractionalMetrics != useFractionalMetrics ||
+       _antialiased != antialiasedFont) {
+      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
+      _useFractionalMetrics = useFractionalMetrics
+      _antialiased = antialiasedFont
+    }
+  }
+  private var _antialiased = true
+  private var _useFractionalMetrics = true
+  def antialiasedFont = _antialiased
+  def useFractionalMetrics = _useFractionalMetrics
+  def antialiased_(a: Boolean) = {
+    _antialiased = a
+    font =_font
+  }
+  def useFractionalMetrics_(fm: Boolean) = {
+    _useFractionalMetrics = fm
+    font =_font
+  }
 
-  def drawText(text:String, x:Int, y:Int) = {
+  private var renderer = new JOGLTextRenderer(_font, true, false)
+
+  def drawText(text: String, x: Int, y: Int): Unit = {
     var w = anchorW
     if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
       anchorW match {
         case ANCH_LEFT => w = 0
         case ANCH_RIGHT =>
-          w = (renderer.getBounds(text)).getWidth.intValue
+          w = (renderer.getBounds(text)).getWidth.toInt
         case ANCH_MID =>
-          w = (renderer.getBounds(text)).getWidth.intValue / 2
+          w = (renderer.getBounds(text)).getWidth.toInt / 2
       }
     }
 
@@ -46,9 +62,9 @@ trait GLTextRenderer { self: GLCanvas =>
       anchorH match {
         case ANCH_BOT => h = 0
         case ANCH_TOP =>
-          h = (renderer.getBounds(text)).getHeight.intValue
+          h = (renderer.getBounds(text)).getHeight.toInt
         case ANCH_MID =>
-          h = (renderer.getBounds(text)).getHeight.intValue / 2
+          h = (renderer.getBounds(text)).getHeight.toInt / 2
       }
     }
     gl.glPushMatrix
@@ -62,12 +78,12 @@ trait GLTextRenderer { self: GLCanvas =>
     gl.glPopMatrix
   }
 
-  def setTextAnchors(anchW:Int, anchH:Int) = {
+  def setTextAnchors(anchW: Int, anchH: Int): Unit = {
     this.anchorW = anchW
     this.anchorH = anchH
   }
 
-  def drawText(text:String, x:Int, y:Int, angle:Float) = {
+  def drawText(text: String, x: Int, y: Int, angle: Float): Unit = {
     var w = anchorW
     if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
       anchorW match {
@@ -94,7 +110,7 @@ trait GLTextRenderer { self: GLCanvas =>
     renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
     gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
     gl.getGL2().glLoadIdentity()
-    gl.glTranslatef(x, y, 0)    
+    gl.glTranslatef(x, y, 0)
     gl.glRotatef(angle, 0, 0, 1)
     gl.glTranslatef(-w, -h, 0)
     renderer.setColor(color)
@@ -103,68 +119,62 @@ trait GLTextRenderer { self: GLCanvas =>
     gl.glPopMatrix
   }
 
-  private def pathLength(figure:Shape) = {
+  private def pathLength(figure: Shape): Float = {
     val path = figure.getPathIterator(null, 1.0)
     val point = new Array[Float](6)
     var prevX = 0.0f; var prevY = 0.0f
-    var len:Float = 0.0f
+    var len = 0.0f
 
     while (!path.isDone()) {
       path.currentSegment(point) match {
-        case PathIterator.SEG_MOVETO => {
+        case PathIterator.SEG_MOVETO =>
             prevX = point(0)
-            prevY = point(1)
-          }
-        case PathIterator.SEG_CLOSE => {}
-        case PathIterator.SEG_LINETO => {
+            prevY = point(1)         
+        case PathIterator.SEG_CLOSE =>
+        case PathIterator.SEG_LINETO =>
           val dx = point(0)-prevX
           val dy = point(1)-prevY
           prevX = point(0)
           prevY = point(1)
-          len += Math.sqrt(dx*dx + dy*dy).floatValue
-        }
+          len += Math.sqrt(dx*dx + dy*dy).toFloat
+        case _ =>
+          System.err.println("FlatteningPathIterator contract violated")
       }
       path.next()
     }
-    len
+    return len
   }
 
-  def setTextCurveParam(x1:Int, y1:Int, x2:Int, y2:Int, ctrlx1:Int, ctrly1:Int, ctrlx2:Int, ctrly2:Int) = {
-    this.x1 = x1; this.y1 = y1; this.x2 = x2; this.y2 = y2;
-    this.ctrlx1 = ctrlx1; this.ctrly1 = ctrly1; this.ctrlx2 = ctrlx2; this.ctrly2 = ctrly2;
-  }
-
-  def drawShapeText(text:String) = {
-    curve = new CubicCurve2D.Float(x1, y1, ctrlx1, ctrly1, ctrlx2, ctrly2, x2, y2)
-    val it = curve.getPathIterator(null, 1.0)
-    val lenght = text.length    
+  def drawTextOnPath(text: String, shape: Shape): Unit = {
+    val it = shape.getPathIterator(null, 1.0)
+    val lenght = text.length
     var prevX = 0.0f; var prevY = 0.0f
-    var currChar:Int = 0
+    var currChar: Int = 0
     var point = new Array[Float](6)
     var first = false
     var next = 0.0f
     var nextAdv = 0.0f
 
-    val factor:Float = pathLength(curve).floatValue /(renderer.getBounds(text)).getWidth.floatValue
+    val factor = pathLength(shape).toFloat/(renderer.getBounds(text)).getWidth.toFloat
 
     while(currChar<lenght && !it.isDone) {
 
       it.currentSegment(point) match {
-        case PathIterator.SEG_MOVETO => {
-            prevX = point(0)
-            prevY = point(1)
-            first = true
-            next = renderer.getCharWidth(text.charAt(currChar))*0.5f
-            nextAdv = next
-        }
-        case PathIterator.SEG_LINETO => {
+        case PathIterator.SEG_MOVETO =>
+          prevX = point(0)
+          prevY = point(1)
+          first = true
+          next = renderer.getCharWidth(text.charAt(currChar))*0.5f
+          nextAdv = next
+        
+        case PathIterator.SEG_LINETO => 
           val dx = point(0)-prevX
           val dy = point(1)-prevY
-          val dist:Float = Math.sqrt(dx*dx + dy*dy).floatValue
+          val dist:Float = scala.Math.sqrt(dx*dx + dy*dy).toFloat
 
           if(dist >= next) {
             val r:Float = 1.0f/dist
-            val angle:Float = Math.atan2(dy, dx).floatValue
+            val angle:Float = scala.Math.atan2(dy, dx).toFloat
             while(currChar<lenght && dist >= next) {
               val x:Float = prevX + next*dx*r
               val y:Float = prevY + next*dy*r
@@ -181,7 +191,7 @@ trait GLTextRenderer { self: GLCanvas =>
                 gl.glTranslatef(x, y, 0)
                 gl.glRotatef(angle.toDegrees, 0, 0, 1)
                 //gl.glTranslatef(-nextAdv, 0, 0)
-                renderer.draw(text.charAt(currChar).toString, 0, 0)              
+                renderer.draw(text.charAt(currChar).toString, 0, 0)
                 renderer.endRendering
               gl.glPopMatrix
               next += (nextAdvTmp+nextAdv) * factor
@@ -191,13 +201,12 @@ trait GLTextRenderer { self: GLCanvas =>
             first = false
             prevX = point(0)
             prevY = point(1)
-          }
-        }
-        case PathIterator.SEG_CLOSE => {
-        }
+          }        
+        case PathIterator.SEG_CLOSE =>
+        case _ =>
+          System.err.println("FlatteningPathIterator contract violated")
       }
       it.next
-    }       
+    }
   }
-  
 }

@@ -1,4 +1,3 @@
-
 package graphic
 
 import java.awt._
@@ -12,18 +11,16 @@ abstract class Canvas {
   def stroke_=(s: BasicStroke)
   def color: Color
   def color_=(c: Color)
-  
-  def fontRenderContext: FontRenderContext
+
   def DefaultFont: Font
   def font: Font
   def font_=(f: Font)
-  
+
   def clear(c: Color)
   def stroke(shape: Shape)
   def drawText(text: String, x: Int, y: Int)
   
-  // TODO: commented out since it needs to be implemented by GLCanvas:
-  //def fill(shape: Shape)
-  //def clip_=(shape: Shape)
-  //def clip: Shape
+  def fill(shape: Shape)
+  def clip_=(shape: Shape)
+  def clip: Shape
 }
