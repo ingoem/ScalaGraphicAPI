@@ -40,11 +40,16 @@ abstract class Demo extends JFrame {
     joglCanvas.requestFocusInWindow()
     setVisible(true)
 
-    val anim = new FPSAnimator(joglCanvas, 50)
-    //val anim = new Animator(joglCanvas)
-    //anim.setRunAsFastAsPossible(true)
+    //val anim = new FPSAnimator(joglCanvas, 50)
+    val anim = new Animator(joglCanvas)
+    anim.setRunAsFastAsPossible(true)
     anim.start
   }
+  
+  var t0, lastFPSUpdate = System.nanoTime
+  var t1 = 0L
+  var framesCounter = 0L
+  var fpsCounter = 0.0
 
   object OGLEventListener extends GLEventListener {
     def init(drawable: GLAutoDrawable) {
@@ -57,15 +62,27 @@ abstract class Demo extends JFrame {
 
     def display(drawable: GLAutoDrawable) {      
       canvas.gl = drawable.getGL.getGL2
-      canvas.resize(drawable.getWidth, drawable.getHeight)      
-      draw(canvas)      
+      draw(canvas)
+      
+      framesCounter +=1
+      t1 = System.nanoTime
+      var fps = 1000000000.0/(t1 - t0)
+      fpsCounter += fps
+      val avg = fpsCounter / framesCounter
+      if(t1 - lastFPSUpdate > 1000000000){  // display fps in each sec
+        println("Fps: " + fps.toFloat +", Avg: " + avg.toFloat)
+        lastFPSUpdate = t1
+      }
+      t0 = t1 
     }
 
-    def reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {}
+    def reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {
+      canvas.resize(drawable.getWidth, drawable.getHeight)    
+    }
     def dispose(drawable: GLAutoDrawable) {}
   }
 
-  def textOutline(f: Font, g: Canvas, str: String, x: Int, y: Int): Shape =
+  def textOutline(f: Font, str: String, x: Int, y: Int): Shape =
     f.createGlyphVector(new FontRenderContext(null, false, false), str).getOutline(x,y)
 
   def loadImage(name: String, sufix: String): Texture = {

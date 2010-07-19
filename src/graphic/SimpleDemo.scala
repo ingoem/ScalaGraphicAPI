@@ -8,11 +8,8 @@ object SimpleDemo extends Demo {
   var animY1 = 0.01
   var dashOffset = 0f
   var dashWidth = 4f
-
-  var startTime: Long = 0L
-  var startTime2: Long = 0L
-  var framesCounter: Long = 0L
-  var fpsCounter = 0.0
+  
+  val outline = textOutline(new Font("Times New Roman", Font.BOLD, 108), "H e l l o", 100, 400)
 
   def draw(g: GLCanvas) {
     g.clear(Color.WHITE)
@@ -32,7 +29,7 @@ object SimpleDemo extends Demo {
     g.stroke(new RoundRectangle2D.Float(390, 290, 80, 90, 30, 30))
 
     g.stroke = new BasicStroke(3, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_BEVEL, 50, Array(4f, 8f), dashOffset)
-    g.stroke(textOutline(new Font("Times New Roman", Font.BOLD, 108), g, "H e l l o", 100, 400))
+    g.stroke(outline)
     g.color = new Color(1.0f, 0.5f, 0.3f)
     
     g.font = new Font("Times New Roman", Font.BOLD, 48)
@@ -82,15 +79,5 @@ object SimpleDemo extends Demo {
     g.fill(new Rectangle2D.Float(120, 20, 50, 70))
     g.fill(new RoundRectangle2D.Float(300, 200, 100, 80, 50, 50))
 */
-
-    framesCounter +=1
-    var fps = 1000000000.0/((System.nanoTime - startTime))    
-    fpsCounter += fps
-    val avg = fpsCounter / framesCounter
-    if(System.nanoTime - startTime2 > 1000000000){  // display fps in each sec
-      println("Fps: " + fps.toFloat +", Avg: " + avg.toFloat)
-      startTime2 = System.nanoTime
-    }
-    startTime = System.nanoTime    
   }
 }
