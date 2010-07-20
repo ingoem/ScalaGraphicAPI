@@ -17,7 +17,6 @@ trait GLTextRenderer { self: GLCanvas =>
   var anchorW = ANCH_LEFT
   var anchorH = ANCH_BOT
   
-  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 24)
   private var _font = DefaultFont
   def font: Font = _font
   //def font_=(f: Font) = _font = f

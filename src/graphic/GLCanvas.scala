@@ -142,7 +142,7 @@ class GLCanvas extends Canvas
     gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_ZERO)
     
     if(stroke.getDashArray != null) {// if dash      
-      strokeShape_1(shape) // when dash      
+      //strokeShape_1(shape) // when dash      
       strokeShape(shape, false)
     } else {
       strokeShape(shape, true) // when no dash

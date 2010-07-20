@@ -7,12 +7,15 @@ import java.awt.font._
  * Abstract low-level immediate mode 2D graphics API.
  */
 abstract class Canvas {
+  def DefaultStroke = new BasicStroke
   def stroke: BasicStroke
   def stroke_=(s: BasicStroke)
+  
+  def DefaultColor = Color.BLACK
   def color: Color
   def color_=(c: Color)
 
-  def DefaultFont: Font
+  def DefaultFont: Font = new Font("Times New Roman", Font.PLAIN, 12)
   def font: Font
   def font_=(f: Font)
 

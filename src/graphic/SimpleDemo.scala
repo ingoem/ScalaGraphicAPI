@@ -11,7 +11,7 @@ object SimpleDemo extends Demo {
   
   val outline = textOutline(new Font("Times New Roman", Font.BOLD, 108), "H e l l o", 100, 400)
 
-  def draw(g: GLCanvas) {
+  def draw(g: Canvas) {
     g.clear(Color.WHITE)
     g.color = new Color(0.0f, 0.0f, 0.01f)
     g.stroke = new BasicStroke(4, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 50, Array(8f, 10f), dashOffset)
@@ -33,7 +33,7 @@ object SimpleDemo extends Demo {
     g.color = new Color(1.0f, 0.5f, 0.3f)
     
     g.font = new Font("Times New Roman", Font.BOLD, 48)
-    g.drawTextOnPath("scala java kawa", new Ellipse2D.Float(100, 100, 150+(math.sin(animY1*5)*90.0).toInt, 100))
+    //g.drawTextOnPath("scala java kawa", new Ellipse2D.Float(100, 100, 150+(math.sin(animY1*5)*90.0).toInt, 100))
 /*
     g.color = new Color(0.2f, 0.2f, 0.8f, 0.5f)
     g.fill(new Arc2D.Float(100, 300, 80, 80, 0, 300, Arc2D.CHORD))
@@ -71,8 +71,8 @@ object SimpleDemo extends Demo {
     //g.clipStroke(p)
     //g.clip = textOutline(new Font("Times New Roman", Font.BOLD, 18), g, "H   e   l   l   o", 100, 300)
 
-    g.image = image1
-    g.drawImage(20, 20, 40, 40)
+    //g.image = image1
+    //g.drawImage(20, 20, 40, 40)
 //    g.deactiveClip
 /*
     g.fill(new Ellipse2D.Float(0, 0, 50, 100))
