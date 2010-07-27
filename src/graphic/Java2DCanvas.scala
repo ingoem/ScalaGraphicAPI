@@ -19,6 +19,7 @@ class Java2DCanvas(private val g: Graphics2D, var width: Int, var height: Int) e
   def font: Font = g.getFont
   def font_=(f: Font) = g.setFont(f)
   def drawText(text: String, x: Int, y: Int) = g.drawString(text, x, y)
+  def drawTextOnPath(text: String, path: Path2D) = throw new IllegalArgumentException
 
   def clear(c: Color) = {
     g.setBackground(c)
@@ -26,7 +27,6 @@ class Java2DCanvas(private val g: Graphics2D, var width: Int, var height: Int) e
     g.setTransform(new AffineTransform)
     g.clearRect(0, 0, width, height)
     g.setTransform(oldTransform)
-    
   }
   def stroke(shape: Shape) = g.draw(shape)
  

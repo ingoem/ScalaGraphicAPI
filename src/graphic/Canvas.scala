@@ -1,6 +1,8 @@
 package graphic
 
 import java.awt._
+import java.awt.geom._
+import java.awt.image._
 import java.awt.font._
 
 /**
@@ -22,6 +24,8 @@ abstract class Canvas {
   def clear(c: Color)
   def stroke(shape: Shape)
   def drawText(text: String, x: Int, y: Int)
+  def drawTextOnPath(text: String, path: Path2D)
+  //def drawImage(image: BufferedImage, x: Int, y: Int, width: Int, height: Int)
   
   def fill(shape: Shape)
   def clip_=(shape: Shape)

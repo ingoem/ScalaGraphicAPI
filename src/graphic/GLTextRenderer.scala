@@ -1,14 +1,14 @@
 package graphic
 
-import java.awt.Font
+import java.awt.{Font, Shape}
+import java.awt.geom.{PathIterator, Path2D}
+import java.util.ArrayList
 import com.sun.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
-import java.awt.Shape
-import java.awt.geom.PathIterator
-import javax.media.opengl.GL2
-import java.awt.geom.CubicCurve2D
+import javax.media.opengl.GL
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 
 trait GLTextRenderer { self: GLCanvas =>
+//  private val bufferId: Array[Int] = Array(0)
   val ANCH_LEFT = Int.MinValue
   val ANCH_RIGHT = Int.MinValue+1
   val ANCH_MID = Int.MinValue+2
@@ -16,6 +16,7 @@ trait GLTextRenderer { self: GLCanvas =>
   val ANCH_TOP = Int.MinValue+4
   var anchorW = ANCH_LEFT
   var anchorH = ANCH_BOT
+  private val REND_CACHE_LIMIT = 100
   
   private var _font = DefaultFont
   def font: Font = _font
@@ -24,9 +25,11 @@ trait GLTextRenderer { self: GLCanvas =>
     if(renderer.getFont.equals(f) == false ||
        _useFractionalMetrics != useFractionalMetrics ||
        _antialiased != antialiasedFont) {
-      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
-      _useFractionalMetrics = useFractionalMetrics
-      _antialiased = antialiasedFont
+  
+      cacheRenderer(renderer, f)
+//      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
+//      _useFractionalMetrics = useFractionalMetrics
+//      _antialiased = antialiasedFont
     }
   }
   private var _antialiased = true
@@ -42,7 +45,24 @@ trait GLTextRenderer { self: GLCanvas =>
     font =_font
   }
 
-  private var renderer = new JOGLTextRenderer(_font, true, false)
+  private var renderer = new JOGLTextRenderer(_font, true, true)
+
+  private val fontStore = new ArrayList[Font]
+  private val rendStore = new ArrayList[JOGLTextRenderer]
+  private def cacheRenderer(r: JOGLTextRenderer, f: Font) {
+    // ceches renderer object or recall form cache
+    val index = fontStore.indexOf(f)
+    if(index != -1){
+      renderer = rendStore.get(index)
+    } else {
+      renderer = new JOGLTextRenderer(f, true, true)
+      if(fontStore.size < REND_CACHE_LIMIT){
+        fontStore.add(f)
+        rendStore.add(renderer)
+        //println("new renderer add")
+      }
+    }
+  }
 
   def drawText(text: String, x: Int, y: Int): Unit = {
     var w = anchorW
@@ -75,6 +95,9 @@ trait GLTextRenderer { self: GLCanvas =>
     renderer.draw(text, 0, 0)
     renderer.endRendering
     gl.glPopMatrix
+
+    // binds again GLCanvas buffer
+    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 
   def setTextAnchors(anchW: Int, anchH: Int): Unit = {
@@ -116,16 +139,19 @@ trait GLTextRenderer { self: GLCanvas =>
     renderer.draw(text, 0, 0)
     renderer.endRendering
     gl.glPopMatrix
+
+        // binds again GLCanvas buffer
+    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 
-  private def pathLength(figure: Shape): Float = {
-    val path = figure.getPathIterator(null, 1.0)
+  private def pathLength(path: Path2D): Float = {
+    val iter = path.getPathIterator(null, 1.0) // TODO: flatness 1.0 okay?
     val point = new Array[Float](6)
     var prevX = 0.0f; var prevY = 0.0f
     var len = 0.0f
 
-    while (!path.isDone()) {
-      path.currentSegment(point) match {
+    while (!iter.isDone()) {
+      iter.currentSegment(point) match {
         case PathIterator.SEG_MOVETO =>
             prevX = point(0)
             prevY = point(1)         
@@ -139,13 +165,13 @@ trait GLTextRenderer { self: GLCanvas =>
         case _ =>
           System.err.println("PathIterator contract violated")
       }
-      path.next()
+      iter.next()
     }
     return len
   }
 
-  def drawTextOnPath(text: String, shape: Shape): Unit = {
-    val it = shape.getPathIterator(null, 1.0)
+  def drawTextOnPath(text: String, path: Path2D): Unit = {
+    val it = path.getPathIterator(null, 1.0) // TODO: flatness 1.0 is okay?
     val lenght = text.length
     var prevX = 0.0f; var prevY = 0.0f
     var currChar: Int = 0
@@ -154,13 +180,12 @@ trait GLTextRenderer { self: GLCanvas =>
     var next = 0.0f
     var nextAdv = 0.0f
 
-    val factor = pathLength(shape).toFloat/(renderer.getBounds(text)).getWidth.toFloat    
+    val factor = pathLength(path).toFloat/(renderer.getBounds(text)).getWidth.toFloat    
 
     renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
     renderer.setColor(color)
     
     while(currChar<lenght && !it.isDone) {
-
       it.currentSegment(point) match {
         case PathIterator.SEG_MOVETO =>
           prevX = point(0)
@@ -172,14 +197,14 @@ trait GLTextRenderer { self: GLCanvas =>
         case PathIterator.SEG_LINETO => 
           val dx = point(0)-prevX
           val dy = point(1)-prevY
-          val dist:Float = scala.Math.sqrt(dx*dx + dy*dy).toFloat
+          val dist = math.sqrt(dx*dx + dy*dy).toFloat
 
           if(dist >= next) {
-            val r:Float = 1.0f/dist
-            val angle:Float = scala.Math.atan2(dy, dx).toFloat
+            val r = 1.0f/dist
+            val angle = math.atan2(dy, dx).toFloat
             while(currChar<lenght && dist >= next) {
-              val x:Float = prevX + next*dx*r
-              val y:Float = prevY + next*dy*r
+              val x = prevX + next*dx*r
+              val y = prevY + next*dy*r
               val nextAdvTmp = nextAdv
               if(currChar+1<lenght)
                 nextAdv = renderer.getCharWidth(text.charAt(currChar+1))*0.5f
@@ -199,12 +224,14 @@ trait GLTextRenderer { self: GLCanvas =>
             prevX = point(0)
             prevY = point(1)
           }        
-        case PathIterator.SEG_CLOSE =>
         case _ =>
           System.err.println("PathIterator contract violated")
       }
       it.next
     }
     renderer.endRendering
+
+    // binds again GLCanvas buffer
+    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 }
