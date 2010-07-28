@@ -7,24 +7,20 @@ import javax.media.opengl.glu.GLU
 import java.nio.{ByteBuffer, ByteOrder, FloatBuffer}
 import java.awt.Shape
 import java.awt.geom._
-import java.awt.{Font, Color, BasicStroke}
+import java.awt.{Color, BasicStroke}
 import collection.mutable.HashMap
 
 class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   protected[graphic] var gl: GL2 = null
-  
-
-  protected val bufferId: Array[Int] = Array(0)
+  protected val bufferId = Array(0)
 
   val WIDTH_MIN = 0.25
   val WIDTH_MAX = 20
-
 
   private val uniqueStencilClipValue = 10
   private val uniqueStencilValue1 = 5
 
   private val builder = new GeometryBuilder
-  import builder._
   private val tessellator = new Tessellator(builder)
   private val stroker = new Stroker(builder)
   
@@ -65,7 +61,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
       gl.glColorMask(false, false, false, false)
 
       tessShape(shape, false)
-      fillAndDrawBuffer(vertsNum)
+      fillAndDrawBuffer()
 
       gl.glColorMask(true, true, true, true)
       gl.glStencilFunc(GL.GL_EQUAL, uniqueStencilClipValue, ~0)
@@ -116,7 +112,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
         stroker.stroke(shape, stroke, true) // when no dash
       }
 
-      fillAndDrawBuffer(vertsNum)
+      fillAndDrawBuffer()
       gl.glDisable(GL.GL_STENCIL_TEST)
       if(color.getAlpha == 1.0f)
         gl.glEnable(GL.GL_BLEND)
@@ -135,7 +131,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
         tessShape(shape, false)
     }
     if(color.getAlpha == 1.0f) gl.glDisable(GL.GL_BLEND)
-    fillAndDrawBuffer(vertsNum)
+    fillAndDrawBuffer()
     if(color.getAlpha == 1.0f) gl.glEnable(GL.GL_BLEND)
   }
 
@@ -150,7 +146,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
       val noDash = stroke.getDashArray == null
       stroker.stroke(shape, stroke, noDash)
 
-      fillAndDrawBuffer(vertsNum)
+      fillAndDrawBuffer()
 
       gl.glColorMask(true, true, true, true)
       gl.glStencilFunc(GL.GL_EQUAL, uniqueStencilClipValue, ~0)
@@ -183,13 +179,12 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   private def tessShape(shape: Shape, doCache: Boolean)  {
     if (tessellationCache contains shape) {
       val cachedCoords = tessellationCache(shape)
-      builder.coordData.rewind()
-      builder.coordData.put(cachedCoords)
-      gvi = cachedCoords.capacity
+      builder.rewind()
+      builder.fill(cachedCoords)
     } else {
       tessellator.tessellate(shape)
 
-      if(doCache && tessellationCache.size <= TESS_STORE_LIMIT){
+      if(doCache && tessellationCache.size <= TESS_STORE_LIMIT) {
         tessellationCache(shape) = builder.coordData
         builder.newCoordData
       }
@@ -201,8 +196,6 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   }
 
   def clear(c: Color): Unit = {
-    builder.rewind()
-
     gl.glClearColor(c.getRed/255f, c.getGreen/255f, c.getBlue/255f, c.getAlpha/255f)
     gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
     gl.glEnable(GL.GL_STENCIL_TEST)
@@ -222,10 +215,11 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   private def resizeVBO() {
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
     gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
-    gl.glBufferData(GL.GL_ARRAY_BUFFER, 4*fixedArraySize, null, GL.GL_DYNAMIC_DRAW)
+    gl.glBufferData(GL.GL_ARRAY_BUFFER, 4*builder.size, null, GL.GL_DYNAMIC_DRAW)
   }
 
-  private def fillAndDrawBuffer(count: Int) {
+  private def fillAndDrawBuffer() {
+    val count = builder.vertexCount
     builder.rewind()
     // avoid sychronization in glBufferSubData by emptying the buffer
     // tremendous speedup on Ingo's MBP

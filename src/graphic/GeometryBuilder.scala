@@ -9,62 +9,110 @@ import java.awt.Shape
 import java.awt.geom._
 import java.awt.{Font, Color, BasicStroke}
 
+sealed abstract class CoordBuffer {
+  protected def newSizeHint(old: Int) = old * 2
+  def size: Int 
+  protected def ensureSize(n: Int)
+  protected def addAtEnd(x: Float, y: Float)
+  
+  def +=(x: Float, y: Float): this.type = {
+    ensureSize(size + 2)
+    addAtEnd(x, y)
+    this
+  }
+  
+  def repeatLast(): this.type = this += (this(size-2), this(size-1))
+  
+  def apply(idx: Int): Float
+  
+  /**
+   * Sets the size to zero, does not clear any elements.
+   */
+  def rewind(): this.type
+}
+
+final class ArrayCoordBuffer(initialSize: Int) extends CoordBuffer {
+  protected def newArray(size: Int) = new Array[Float](size)
+  protected var array = newArray(initialSize)
+  protected var size0 = 0
+  
+  def size = size0
+  
+  protected def ensureSize(n: Int) {
+    if (n > array.length) {
+      var newsize = newSizeHint(array.length)
+      while (n > newsize)
+        newsize = newSizeHint(newsize)
+        val newar = newArray(newsize)
+        Array.copy(array, 0, newar, 0, size0)
+        array = newar
+    }
+  }
+  
+  protected def addAtEnd(x: Float, y: Float) = {
+    array(size0) = x
+    array(size0 + 1) = y
+    size0 += 2
+  }
+  
+  def apply(idx: Int) = array(idx)
+  
+  /**
+   * Sets the size to zero, does not clear any elements.
+   */
+  def rewind(): this.type = { size0 = 0; this }
+}
+
+final class NIOCoordBuffer(initialSize: Int) extends CoordBuffer {
+  protected def newBuffer(size: Int) = 
+    ByteBuffer.allocateDirect(4*size).order(ByteOrder.nativeOrder).asFloatBuffer
+    //FloatBuffer.allocate(n)//new Array[Float](fixedArraySize)
+  protected var buffer = newBuffer(initialSize)
+  def nioBuffer: FloatBuffer = buffer
+  def size = buffer.position
+  
+  protected def ensureSize(n: Int) {
+    if (n > buffer.capacity) {
+      var newsize = newSizeHint(buffer.capacity)
+      while (n > newsize)
+        newsize = newSizeHint(newsize)
+        buffer = newBuffer(newsize).put(buffer)
+    }
+  }
+  
+  protected def addAtEnd(x: Float, y: Float) = {
+    buffer.put(x)
+    buffer.put(y)
+  }
+  
+  def apply(idx: Int) = buffer.get(idx)
+  
+  /**
+   * Sets the size to zero, does not clear any elements.
+   */
+  def rewind(): this.type = { buffer.rewind(); this }
+}
+
+
 class GeometryBuilder {
   private val floatSize = 4
-  var fixedArraySize = 4096//12210
+  private var fixedArraySize = 4096//12210
   private val extendArraySize = 4096 // 4096 = 2048 two coord's verts = 8192 bytes
-  private var verts = allocateCoordData(fixedArraySize)
-  private var tmpVerts = new Array[Float](fixedArraySize)
+  private var _coords = new NIOCoordBuffer(fixedArraySize)//allocateCoordData(fixedArraySize)
+  private var _tempCoords = new ArrayCoordBuffer(fixedArraySize)
   
-  def vertsNum = verts.position/2//gvi/2
-  var gvi = 0 // global vertex index
-  var ind = 0 // index for path outline
-  var nx = 0.0f
-  var ny = 0.0f
-  
+  def vertexCount = _coords.size/2//gvi/2
+  def size = fixedArraySize
+
   val arcVerts = new Array[Float](180)
   var arcInd = 0
   var endsAtStart = false
   var implicitClose = false
   
-  def addVertex(x: Float, y: Float) {
-    // extends array, increase global index
-    if(gvi+2 < fixedArraySize) {      
-      verts.put(x)
-      verts.put(y)
-      gvi += 2
-    } else { // re-size the array      
-      fixedArraySize = fixedArraySize + extendArraySize
-      val tmpVertsBuffer = allocateCoordData(fixedArraySize)
-      tmpVertsBuffer.put(verts)
-      verts = tmpVertsBuffer
-      verts.position(gvi)
-      verts.put(x)
-      verts.put(y)
-      gvi += 2
-      //resizeVBO
-      println("Verts Array resized to: "+fixedArraySize+" elements")
-      println("VBO resized to: "+fixedArraySize*4+" bytes")
-    }
-  }
-
-  def addTmpVertex(x: Float, y: Float, index: Int) {    
-    if(index+2 < fixedArraySize) {
-      tmpVerts(index) = x
-      tmpVerts(index+1) = y
-    } else { // extends array tmp, does not increase global index
-      val tempArray = new Array[Float](fixedArraySize)
-      tmpVerts.copyToArray(tempArray)
-      fixedArraySize = fixedArraySize + extendArraySize
-      println("tmp verts Array resized to: "+fixedArraySize)
-      tmpVerts = new Array[Float](fixedArraySize)
-      tempArray.copyToArray(tmpVerts)
-      tmpVerts(index) = x
-      tmpVerts(index+1) = y
-    }
-  }
+  def tempCoords: CoordBuffer = _tempCoords
+  def coords: CoordBuffer = _coords
   
-  def coordData: FloatBuffer = verts
+  def coordData: FloatBuffer = _coords.nioBuffer
   private def allocateCoordData(n: Int) = 
     ByteBuffer.allocateDirect(4*n).order(ByteOrder.nativeOrder).asFloatBuffer
     //FloatBuffer.allocate(n)//new Array[Float](fixedArraySize)
@@ -72,15 +120,15 @@ class GeometryBuilder {
   
   def rewind() { 
     coordData.rewind() 
-    gvi = 0  
   }
   
-  def tmpVertex(idx: Int) = tmpVerts(idx)
-  def coord(idx: Int) = verts.get(idx)
+  def fill(b: FloatBuffer) {
+    _coords.nioBuffer.put(b)
+  }
   
   def emitLineSeg(x: Float, y: Float, nx: Float, ny: Float) {
-    addVertex(x + nx, y + ny)
-    addVertex(x - nx, y - ny)
+    _coords += (x + nx, y + ny)
+    _coords += (x - nx, y - ny)
   }
  
   def flatnessFactor(shape: Shape): Double = {

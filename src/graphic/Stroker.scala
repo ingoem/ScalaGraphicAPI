@@ -32,14 +32,14 @@ class Stroker(builder: GeometryBuilder) {
     var len = 10.0f // lenght of stroke segment
     var prevx = 0.0f
     var prevy = 0.0f
-    var next = false // wheater to go to next point form path iterator
-    var space = false // wheater is space or stroke
+    var next = false // whether to go to next point form path iterator
+    var space = false // whether is space or stroke
     var tDist= 0.0f // temporary distance from prev point, when dist < len
     var inter = 0 // determine when to start space or stroke
     val dash = stroke.getDashArray
     var f = false
 
-    gvi=0
+    
 
     if(!noDash) {
       //len = dash(0) + stroke.getDashPhase// stroke
@@ -51,26 +51,25 @@ class Stroker(builder: GeometryBuilder) {
         len = len - dash(0) // break
       }
     }
+    builder.rewind()
+    tempCoords.rewind()
     while(!iter.isDone){
       iter.currentSegment(point) match {
         case PathIterator.SEG_MOVETO =>
           if(noDash) {
-            addTmpVertex(point(0), point(1), gvi)
-            gvi += 2
+            tempCoords += (point(0), point(1))
           } else {
             if(inter%2 == 0) {
               strokePath.moveTo(point(0), point(1))
 //            inter = 0
-              addTmpVertex(point(0), point(1), gvi)
-              gvi += 2
+              tempCoords += (point(0), point(1))
             }
             prevx = point(0)
             prevy = point(1)
           }
       case PathIterator.SEG_LINETO =>
         if(noDash) {
-          addTmpVertex(point(0), point(1), gvi)
-          gvi += 2
+          tempCoords += (point(0), point(1))
         } else {
           while(!next) {
             val dist = math.sqrt((point(0)-prevx)*(point(0)-prevx) + (point(1)-prevy)*(point(1)-prevy)).toFloat
@@ -87,15 +86,13 @@ class Stroker(builder: GeometryBuilder) {
                 //if(first == true)
                   strokePath.lineTo(mtp1.toFloat, mtp2.toFloat)
                 len = dash(1) // space
-                addTmpVertex(mtp1.toFloat, mtp2.toFloat, gvi)
-                gvi += 2
+                tempCoords += (mtp1.toFloat, mtp2.toFloat)
               }
               else {
                 //first = true
                 strokePath.moveTo(prevx, prevy)
                 len = dash(0) // stroke
-                addTmpVertex(prevx, prevy, gvi)
-                gvi += 2
+                tempCoords += (prevx, prevy)
               }
               inter += 1
             } else {
@@ -104,8 +101,7 @@ class Stroker(builder: GeometryBuilder) {
               prevy = point(1)
               if(inter%2 == 0){ // dont add when break
                 strokePath.lineTo(point(0), point(1)) // middle point
-                addTmpVertex(point(0), point(1), gvi)
-                gvi += 2
+                tempCoords += (point(0), point(1))
               }
               next = true
             }
@@ -125,9 +121,8 @@ class Stroker(builder: GeometryBuilder) {
   // TODO: is that the right name?
   private def storeCapsAndJoins(shape: Shape, stroked: Shape, stroke: BasicStroke, noDash: Boolean) {
     def thinLine = stroke.getLineWidth <= 0.75
-    
-    gvi = 0
-    ind = 0
+
+    var ind = 0
     var prevt = 0
     var startInd = 0
     val iter = 
@@ -160,6 +155,9 @@ class Stroker(builder: GeometryBuilder) {
     //vertsNum = gvi/2
   }
   
+  private var nx = 0.0f
+  private var ny = 0.0f
+  
     // TODO: rename
   private def pw0(stroke: BasicStroke, dx: Float, dy: Float) = stroke.getLineWidth / 2.0f / 
     (if (dx == 0) math.abs(dy)
@@ -167,19 +165,19 @@ class Stroker(builder: GeometryBuilder) {
     else math.sqrt(dx*dx + dy*dy).toFloat)
   
   private  def lineTo(ind: Int) {
-    emitLineSeg(tmpVertex(ind), tmpVertex(ind+1), nx, ny)
-    curx = tmpVertex(ind)
-    cury = tmpVertex(ind+1)
+    emitLineSeg(tempCoords(ind), tempCoords(ind+1), nx, ny)
+    curx = tempCoords(ind)
+    cury = tempCoords(ind+1)
   }
     
   private def moveTo(stroke: BasicStroke, ind: Int) {
     // normal vector
-    val x1 = tmpVertex(ind)
-    val y1 = tmpVertex(ind+1)
-    curx = tmpVertex(ind)
-    cury = tmpVertex(ind+1)
-    val x2 = tmpVertex(ind+2)
-    val y2 = tmpVertex(ind+3)
+    val x1 = tempCoords(ind)
+    val y1 = tempCoords(ind+1)
+    curx = tempCoords(ind)
+    cury = tempCoords(ind+1)
+    val x2 = tempCoords(ind+2)
+    val y2 = tempCoords(ind+3)
     val dx = x2 - x1
     val dy = y2 - y1
     var pw = pw0(stroke, dx, dy)
@@ -189,31 +187,132 @@ class Stroker(builder: GeometryBuilder) {
 
     stroke.getEndCap match {
       case BasicStroke.CAP_SQUARE =>
-        addVertex(curx + nx, cury + ny)
+        coords += (curx + nx, cury + ny)
       case BasicStroke.CAP_BUTT =>
-        addVertex(curx - ny + nx, cury + nx + ny)
+        coords += (curx - ny + nx, cury + nx + ny)
         emitLineSeg(curx - ny, cury + nx, nx, ny)
       case BasicStroke.CAP_ROUND =>
         arcPoints(curx, cury, curx+nx, cury+ny, curx-nx, cury-ny)
         var st = 0
         var end = arcInd
-        addVertex(curx + nx, cury + ny)
-        addVertex(curx + nx, cury + ny)
+        coords += (curx + nx, cury + ny)
+        coords += (curx + nx, cury + ny)
         while(end > st){
-          addVertex(arcVerts(st), arcVerts(st+1))
+          coords += (arcVerts(st), arcVerts(st+1))
           st += 2
-          addVertex(arcVerts(end-2), arcVerts(end-1))
+          coords += (arcVerts(end-2), arcVerts(end-1))
           end -= 2
         }
         //addVertex(verts(i-2), verts(i-1))
-        addVertex(coord(gvi-2), coord(gvi-1))
-        addVertex(curx + nx, cury + ny)
+        coords.repeatLast
+        coords += (curx + nx, cury + ny)
     }
     emitLineSeg(curx, cury, nx, ny)
   }
 
-  
+  private def endCapOrCapClose(stroke: BasicStroke, startInd: Int, implicitClose: Boolean) {
+    if(endsAtStart){
+      join(stroke, startInd+2)
+    } else if(implicitClose) {
+      join(stroke, startInd)
+      lineTo(startInd)
+      join(stroke, startInd+2)
+    } else {
+      endCap(stroke)
+    }
+    //addVertex(verts(i-2), verts(i-1))
+    coords.repeatLast
+  }
 
+  private def endCap(stroke: BasicStroke) {
+    stroke.getEndCap match {
+      case BasicStroke.CAP_SQUARE =>
+      case BasicStroke.CAP_BUTT =>
+        emitLineSeg(curx+ny, cury-nx, nx, ny)
+      case BasicStroke.CAP_ROUND =>
+        val count = coords.size
+        arcPoints(curx, cury, coords(count-2), coords(count-1), coords(count-4), coords(count-3) )
+        var front = 1
+        var end = (arcInd-2) / 2
+        while (front < end) {
+          coords += (arcVerts(2*end-2), arcVerts(2*end-1))
+          end-=1
+          if (front < end) {
+            coords += (arcVerts(2*front), arcVerts(2*front+1))
+            front+=1
+          }
+        }
+        coords.repeatLast
+    }
+  }
+  
+  private def join(stroke: BasicStroke, ind: Int) {
+    // normal vector
+    val x1 = curx
+    val y1 = cury
+    val x2 = tempCoords(ind)
+    val y2 = tempCoords(ind+1)
+    val dx = x2 - x1
+    val dy = y2 - y1
+    val pw = pw0(stroke, dx, dy)
+
+    nx = -dy * pw
+    ny = dx * pw
+
+    stroke.getLineJoin match {
+      case BasicStroke.JOIN_BEVEL =>
+      case BasicStroke.JOIN_MITER =>
+        val count = coords.size
+        val prevNvx = coords(count-2) - curx
+        val prevNvy = coords(count-1) - cury
+        val xprod = prevNvx * ny - prevNvy * nx
+        var px, py, qx, qy = 0.0
+
+        if(xprod <0 ) {
+          px = coords(count-2)
+          py = coords(count-1)
+          qx = curx - nx
+          qy = cury - ny
+        } else {
+          px = coords(count-4)
+          py = coords(count-3)
+          qx = curx + nx
+          qy = cury + ny
+        }
+
+        var pu = px * prevNvx + py * prevNvy
+        var qv = qx * nx + qy * ny
+        var ix = (ny * pu - prevNvy * qv) / xprod
+        var iy = (prevNvx * qv - nx * pu) / xprod
+
+        if ((ix - px) * (ix - px) + (iy - py) * (iy - py) <= stroke.getMiterLimit * stroke.getMiterLimit) {
+          coords += (ix.toFloat, iy.toFloat)
+          coords += (ix.toFloat, iy.toFloat)
+        }
+      case BasicStroke.JOIN_ROUND =>
+        val count = coords.size
+        val prevNvx = coords(count-2) - curx
+        val prevNvy = coords(count-1) - cury
+        var ii = 0
+        if(nx * prevNvy - ny * prevNvx < 0) {
+          arcPoints(0, 0, nx, ny, -prevNvx, -prevNvy)
+          ii = arcInd / 2
+          while( ii > 0 ) {
+            emitLineSeg(curx, cury, arcVerts(2*ii - 2), arcVerts(2*ii - 1) )
+            ii-=1
+          }
+        } else {
+          arcPoints(0, 0, -prevNvx, -prevNvy, nx, ny)
+          ii = 0
+          while (ii < arcInd / 2) {
+            emitLineSeg(curx, cury, arcVerts(2*ii + 0), arcVerts(2*ii + 1) )
+            ii+=1
+          }
+        }
+    }
+    emitLineSeg(curx, cury, nx, ny)
+  }
+  
   private def arcPoints(cx: Float, cy: Float, fromX: Float, fromY: Float, toX: Float, toY: Float) {
     var dx1 = fromX - cx
     var dy1 = fromY - cy
@@ -255,106 +354,5 @@ class Stroker(builder: GeometryBuilder) {
       arcInd+=2
     }
     //if(arcInd>0) arcInd -= 2
-  }
-
-  private def endCapOrCapClose(stroke: BasicStroke, startInd: Int, implicitClose: Boolean) {
-    if(endsAtStart){
-      join(stroke, startInd+2)
-    } else if(implicitClose) {
-      join(stroke, startInd)
-      lineTo(startInd)
-      join(stroke, startInd+2)
-    } else {
-      endCap(stroke)
-    }
-    //addVertex(verts(i-2), verts(i-1))
-    addVertex(coord(gvi-2), coord(gvi-1))
-  }
-
-  def endCap(stroke: BasicStroke) {
-    stroke.getEndCap match {
-      case BasicStroke.CAP_SQUARE =>
-      case BasicStroke.CAP_BUTT =>
-        emitLineSeg(curx+ny, cury-nx, nx, ny)
-      case BasicStroke.CAP_ROUND =>
-        arcPoints(curx, cury, coord(gvi-2), coord(gvi-1), coord(gvi-4), coord(gvi-3) )
-        var front:Int = 1
-        var end:Int = (arcInd-2) / 2
-        while (front < end) {
-          addVertex(arcVerts(2*end-2), arcVerts(2*end-1))
-          end-=1
-          if (front < end) {
-            addVertex(arcVerts(2*front), arcVerts(2*front+1))
-            front+=1
-          }
-        }
-        addVertex(coord(gvi-2), coord(gvi-1))
-    }
-  }
-  
-  private def join(stroke: BasicStroke, ind: Int) {
-    // normal vector
-    val x1 = curx
-    val y1 = cury
-    val x2 = tmpVertex(ind)
-    val y2 = tmpVertex(ind+1)
-    val dx = x2 - x1
-    val dy = y2 - y1
-    val pw = pw0(stroke, dx, dy)
-
-    nx = -dy * pw
-    ny = dx * pw
-
-    stroke.getLineJoin match {
-      case BasicStroke.JOIN_BEVEL =>
-      case BasicStroke.JOIN_MITER =>
-        val count = gvi
-        val prevNvx = coord(count-2) - curx
-        val prevNvy = coord(count-1) - cury
-        val xprod = prevNvx * ny - prevNvy * nx
-        var px, py, qx, qy = 0.0
-
-        if(xprod <0 ) {
-          px = coord(count-2)
-          py = coord(count-1)
-          qx = curx - nx
-          qy = cury - ny
-        } else {
-          px = coord(count-4)
-          py = coord(count-3)
-          qx = curx + nx
-          qy = cury + ny
-        }
-
-        var pu = px * prevNvx + py * prevNvy
-        var qv = qx * nx + qy * ny
-        var ix = (ny * pu - prevNvy * qv) / xprod
-        var iy = (prevNvx * qv - nx * pu) / xprod
-
-        if ((ix - px) * (ix - px) + (iy - py) * (iy - py) <= stroke.getMiterLimit * stroke.getMiterLimit) {
-          addVertex(ix.toFloat, iy.toFloat)
-          addVertex(ix.toFloat, iy.toFloat)
-        }
-      case BasicStroke.JOIN_ROUND =>
-        val prevNvx = coord(gvi-2) - curx
-        val prevNvy = coord(gvi-1) - cury
-        var ii:Int = 0
-        if(nx * prevNvy - ny * prevNvx < 0) {
-          arcPoints(0, 0, nx, ny, -prevNvx, -prevNvy)
-          ii = arcInd / 2
-          while( ii > 0 ) {
-            emitLineSeg(curx, cury, arcVerts(2*ii - 2), arcVerts(2*ii - 1) )
-            ii-=1
-          }
-        } else {
-          arcPoints(0, 0, -prevNvx, -prevNvy, nx, ny)
-          ii = 0
-          while (ii < arcInd / 2) {
-            emitLineSeg(curx, cury, arcVerts(2*ii + 0), arcVerts(2*ii + 1) )
-            ii+=1
-          }
-        }
-    }
-    emitLineSeg(curx, cury, nx, ny)
   }
 }
