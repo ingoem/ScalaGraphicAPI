@@ -1,13 +1,8 @@
 package graphic
 
-import javax.media.opengl._
-import javax.media.opengl.fixedfunc.GLMatrixFunc
-import javax.media.opengl.glu.GLU
-import java.nio.{ByteBuffer, ByteOrder, FloatBuffer}
-import java.util.ArrayList
 import java.awt.Shape
 import java.awt.geom._
-import java.awt.{Font, Color, BasicStroke}
+import java.awt.BasicStroke
 
 class Stroker(builder: GeometryBuilder) {
   import builder._
@@ -38,8 +33,6 @@ class Stroker(builder: GeometryBuilder) {
     var inter = 0 // determine when to start space or stroke
     val dash = stroke.getDashArray
     var f = false
-
-    
 
     if(!noDash) {
       //len = dash(0) + stroke.getDashPhase// stroke
@@ -224,6 +217,8 @@ class Stroker(builder: GeometryBuilder) {
     coords.repeatLast
   }
 
+  // TODO: I am pretty sure this can be reused maybe with some modification to be reused in 
+  // method moveTo.
   private def endCap(stroke: BasicStroke) {
     stroke.getEndCap match {
       case BasicStroke.CAP_SQUARE =>

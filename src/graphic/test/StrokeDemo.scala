@@ -38,8 +38,8 @@ object StrokeDemo extends FPSDemo {
 
     val rect1 = new Rectangle2D.Float(290, 200, 80, 90)
     val rect2 = new Rectangle2D.Float(390, 200, 80, 90)
-    val rrect1 = new RoundRectangle2D.Float(290, 310, 80, 90, 30, 30)
-    val rrect2 = new RoundRectangle2D.Float(390, 310, 80, 90, 30, 30)
+    val rrect1 = new RoundRectangle2D.Float(90, 200, 80, 90, 30, 30)
+    val rrect2 = new RoundRectangle2D.Float(190, 200, 80, 90, 30, 30)
     
     g.color = Color.cyan
     g.fill(triangle1)
@@ -49,6 +49,7 @@ object StrokeDemo extends FPSDemo {
     
     g.color = new Color(0.0f, 0.0f, 0.01f)
     g.stroke = new BasicStroke(4, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 50, Array(8f, 10f), dashOffset)
+    g.stroke(new Ellipse2D.Float(200, 30, 200, 10))
     g.stroke(new Ellipse2D.Float(200, 50, 200, 50))
 
     dashOffset += 0.2f
@@ -66,7 +67,7 @@ object StrokeDemo extends FPSDemo {
     g.stroke(rect2)
     g.stroke(triangle2)
 
-    g.stroke = new BasicStroke(3, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_BEVEL, 50, Array(4f, 8f), dashOffset)
+    g.stroke = new BasicStroke(2, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_BEVEL, 50, Array(8f, 4f, 2f, 4f), dashOffset)
     g.stroke(outline)
 
     g.color = new Color(1.0f, 0.5f, 0.3f)

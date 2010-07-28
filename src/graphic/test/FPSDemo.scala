@@ -1,25 +1,49 @@
 package graphic
 package test
 
+import scala.collection.mutable.ArrayBuffer
+
 trait FPSDemo extends Demo {
-  var t0, lastFPSUpdate = System.nanoTime
-  var t = 0
-  var t1 = 0L
-  var framesCounter = 0L
+  var t0, t1, frameCount = 0L
   var fpsCounter = 0.0
+  lazy val fpsLog = new ArrayBuffer[Double](256) ++= Array.fill(5)(0d) 
+  
+  private def lastFPS(n: Int) = fpsLog.view.drop(math.max(0, fpsLog.size-n))
+  private def meanFPS(lastN: Int): Double = {
+    val buf = lastFPS(lastN)
+    val sum = buf reduceLeft (_+_)
+    sum/buf.size
+  }
+  private def stdDeviationFPS(lastN: Int): Double = {
+    val buf = lastFPS(lastN)
+    val mean = meanFPS(lastN)
+    val sqSum = buf reduceLeft { (a,b) => 
+      val aa = (a - mean)
+      val bb = (b - mean)
+      aa*aa + bb*bb
+    }
+    math.sqrt(sqSum/buf.size)
+  }
+  
+  def init() {
+    t0 = System.nanoTime
+  }
   
   def step(canvas: Canvas) {
     draw(canvas)
     
-    framesCounter +=1
+    frameCount +=1
     t1 = System.nanoTime
-    var fps = 1000000000.0/(t1 - t0)
-    fpsCounter += fps
-    val avg = fpsCounter / framesCounter
-    if(t1 - lastFPSUpdate > 1000000000) {  // display fps in each sec
-      log("Fps: " + fps.toFloat +", Avg: " + avg.toFloat)
-      lastFPSUpdate = t1
+    val secs = (t1-t0)/1000000000.0
+    if (secs >= 1.0) { // measure fps each 1/10th sec
+      val fps = frameCount/secs
+      fpsLog += fps
+      fpsCounter += fps - fpsLog(fpsLog.size-6)
+      val avg = fpsCounter / 5
+      log("Fps: "+ fps.toFloat +", Avg: "+ avg.toFloat)// +", Avg(last 10): "+ meanFPS(100).toFloat)
+      // reset:
+      t0 = t1
+      frameCount = 0
     }
-    t0 = t1
   }
 }

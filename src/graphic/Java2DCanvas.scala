@@ -4,12 +4,10 @@ import java.awt._
 import java.awt.geom._
 import java.awt.font._
 
-class Java2DCanvas(private val g: Graphics2D, var width: Int, var height: Int) extends Canvas {
+class Java2DCanvas(private[graphic] var g: Graphics2D, var width: Int, var height: Int) extends Canvas {
   stroke = DefaultStroke
   color = DefaultColor
   font = DefaultFont
-  
-  g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
   
   def stroke: BasicStroke = g.getStroke.asInstanceOf[BasicStroke]
   def stroke_=(s: BasicStroke) = g.setStroke(s) 
@@ -22,11 +20,13 @@ class Java2DCanvas(private val g: Graphics2D, var width: Int, var height: Int) e
   def drawTextOnPath(text: String, path: Path2D) = throw new IllegalArgumentException
 
   def clear(c: Color) = {
+    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
     g.setBackground(c)
     val oldTransform = g.getTransform
     g.setTransform(new AffineTransform)
     g.clearRect(0, 0, width, height)
     g.setTransform(oldTransform)
+    g.drawRect(1,1,width-5,height-5)
   }
   def stroke(shape: Shape) = g.draw(shape)
  

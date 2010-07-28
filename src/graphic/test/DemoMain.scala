@@ -10,8 +10,13 @@ object DemoMain {
   val RendererPrefix = "-renderer:"
   val backends = Map("gl" -> GLAWTLauncher, 
                      "java2d" -> Java2DLauncher)
-  val demos: Map[String, Demo] = Map("stroke" -> StrokeDemo, 
-                  "simple" -> SimpleDemo, "linecount" -> LineCountDemo)
+  val demos: Map[String, Demo] = Map("nil" -> NilDemo, 
+      "stroke" -> StrokeDemo, 
+      "dash" -> DashDemo, 
+      "simple" -> SimpleDemo, 
+      "linecount" -> LineCountDemo,
+      "rectcount" -> RectCountDemo,
+      "ellipsecount" -> EllipseCountDemo)
   
   def main(args: Array[String]) {
     val (flags, demoIds) = args.partition(_.startsWith("-"))
@@ -67,6 +72,7 @@ object GLAWTLauncher extends Launcher {
     val canvas = new GLCanvas
     
     def init(drawable: GLAutoDrawable) {
+      demo.init()
       val gl = drawable.getGL.getGL2
       canvas.init(gl)   
       drawable.setRealized(true)
@@ -80,6 +86,8 @@ object GLAWTLauncher extends Launcher {
     }
 
     def reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {
+      demo.width = drawable.getWidth
+      demo.height = drawable.getHeight
       canvas.resize(drawable.getWidth, drawable.getHeight)
       canvas.clear(Color.white)
     }
@@ -93,10 +101,11 @@ object GLAWTLauncher extends Launcher {
 
 object Java2DLauncher extends Launcher {
   def launch(demo: Demo) {
-    val frame = new Frame
+    val frame = new javax.swing.JFrame
     val comp = new CanvasComponent(demo)
     frame.add(comp)
     frame.setSize(500, 500)
+    
     //frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
     comp.requestFocusInWindow()
     frame.setVisible(true)
@@ -106,16 +115,20 @@ object Java2DLauncher extends Launcher {
     javax.swing.RepaintManager.currentManager(this).setDoubleBufferingEnabled(false)
     setOpaque(true)
     
-    lazy val canvas = new Java2DCanvas(getGraphics().asInstanceOf[Graphics2D], 0, 0)
+    lazy val canvas = new Java2DCanvas(getGraphics.asInstanceOf[Graphics2D], 0, 0)
+    lazy val initDemo = demo.init()
     
     override def paint(g: Graphics) {
+      demo.width = getWidth
+      demo.height = getHeight
+      
+      initDemo
       val g2d = g.asInstanceOf[Graphics2D]
-      g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+      canvas.g = g2d
       canvas.width = getWidth
       canvas.height = getHeight
       demo.step(canvas)
       this.repaint()
-      //paintImmediately(0,0, getWidth, getHeight)
     }
   }
 }

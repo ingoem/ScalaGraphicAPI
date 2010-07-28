@@ -1,13 +1,9 @@
 package graphic
 
-import javax.media.opengl._
-import javax.media.opengl.fixedfunc.GLMatrixFunc
-import javax.media.opengl.glu.GLU
 import java.nio.{ByteBuffer, ByteOrder, FloatBuffer}
 import java.util.ArrayList
 import java.awt.Shape
 import java.awt.geom._
-import java.awt.{Font, Color, BasicStroke}
 
 sealed abstract class CoordBuffer {
   protected def newSizeHint(old: Int) = old * 2
@@ -131,7 +127,8 @@ class GeometryBuilder {
     _coords += (x - nx, y - ny)
   }
  
-  def flatnessFactor(shape: Shape): Double = {
+  // TODO: where to move this?
+  def flatnessFactor(shape: Shape): Double = 0.5 /*{
     val flatTresh = 40.0 // treshold for decreasing flatness factor
     val size = math.min(shape.getBounds2D.getWidth, shape.getBounds2D.getHeight) - flatTresh
     val linearFactor = 500.0
@@ -139,5 +136,5 @@ class GeometryBuilder {
     val fac1 = 5.0
     if(size > 0f) flatMax - math.log10(size)/fac1
     else 1.0
-  }
+  }*/
 }

@@ -4,7 +4,7 @@ package graphic
 import javax.media.opengl._
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 import javax.media.opengl.glu.GLU
-import java.nio.{ByteBuffer, ByteOrder, FloatBuffer}
+import java.nio.{FloatBuffer}
 import java.awt.Shape
 import java.awt.geom._
 import java.awt.{Color, BasicStroke}
@@ -12,6 +12,7 @@ import collection.mutable.HashMap
 
 class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   protected[graphic] var gl: GL2 = null
+  protected var width, height = 0
   protected val bufferId = Array(0)
 
   val WIDTH_MIN = 0.25
@@ -87,6 +88,8 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   }
 
   private[graphic] def resize(width: Int, height: Int) {
+    this.width = width
+    this.height = height
     val glu = new GLU
     gl.glViewport(0, 0, width, height)
     gl.glMatrixMode(GLMatrixFunc.GL_PROJECTION)
@@ -203,7 +206,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     gl.glStencilFunc(GL.GL_ALWAYS, uniqueStencilValue1, 0)
     gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_REPLACE)
     gl.glColor4f(c.getRed/255f, c.getGreen/255f, c.getBlue/255f, c.getAlpha/255f)
-    this.fill(new Rectangle2D.Float(0, 0, 500, 500))
+    this.fill(new Rectangle2D.Float(0, 0, width, height))
     gl.glDisable(GL.GL_STENCIL_TEST)
     gl.glEnable(GL.GL_BLEND)
   }
