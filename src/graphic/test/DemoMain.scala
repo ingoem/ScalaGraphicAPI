@@ -13,6 +13,7 @@ object DemoMain {
                      "java2d" -> Java2DLauncher)
   val demos: Map[String, Demo] = Map("nil" -> NilDemo, 
       "stroke" -> StrokeDemo, 
+      "font" -> FontTest,
       "linedash" -> LineDashDemo, 
       "simple" -> SimpleDemo, 
       "linecount" -> LineCountDemo,

@@ -7,7 +7,7 @@ import com.jogamp.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
 import javax.media.opengl.GL
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 
-trait GLTextRenderer { self: GLCanvas =>
+trait GLTextRenderer { canvas: GLCanvas =>
 //  private val bufferId: Array[Int] = Array(0)
   val ANCH_LEFT = Int.MinValue
   val ANCH_RIGHT = Int.MinValue+1
@@ -21,10 +21,9 @@ trait GLTextRenderer { self: GLCanvas =>
   private var _font = DefaultFont
   def font: Font = _font
   //def font_=(f: Font) = _font = f
-  def font_=(f: Font) = {
-    if(renderer.getFont.equals(f) == false ||
-       _useFractionalMetrics != useFractionalMetrics ||
-       _antialiased != antialiasedFont) {
+  def font_=(f: Font) {
+    _font = f
+    if(renderer.getFont != f || useFractionalMetrics || antialiasedFont) { // TODO: why these tests?
   
       cacheRenderer(renderer, f)
 //      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
@@ -65,6 +64,7 @@ trait GLTextRenderer { self: GLCanvas =>
   }
 
   def drawText(text: String, x: Int, y: Int): Unit = {
+    // TODO: what is the anchoring code doing here?
     var w = anchorW
     if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
       anchorW match {
@@ -87,10 +87,10 @@ trait GLTextRenderer { self: GLCanvas =>
       }
     }
     gl.glPushMatrix
-    renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
+    renderer.beginRendering(canvas.width, canvas.height)
     gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
-    gl.getGL2().glLoadIdentity()
-    gl.glTranslatef(x-w, y-h, 0)
+    //gl.getGL2().glLoadIdentity()
+    gl.glTranslatef(x, canvas.height-y, 0)
     renderer.setColor(color)
     renderer.draw(text, 0, 0)
     renderer.endRendering
@@ -105,6 +105,7 @@ trait GLTextRenderer { self: GLCanvas =>
     this.anchorH = anchH
   }
 
+  // TODO: major code duplication with the other drawText method
   def drawText(text: String, x: Int, y: Int, angle: Float): Unit = {
     var w = anchorW
     if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {

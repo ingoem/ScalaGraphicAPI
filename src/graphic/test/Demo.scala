@@ -7,7 +7,7 @@ trait Demo {
   def log(s: String) = println(s)
   
   def textOutline(f: Font, str: String, x: Int, y: Int): Shape =
-    f.createGlyphVector(new font.FontRenderContext(null, false, false), str).getOutline(x,y)
+    f.createGlyphVector(new font.FontRenderContext(null, true, true), str).getOutline(x,y)
       
   var width = 0
   var height = 0
