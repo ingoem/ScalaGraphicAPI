@@ -98,6 +98,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     gl.glClearStencil(0)
     gl.glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
     gl.glLoadIdentity()
+    gl.glTranslated(0.375, 0.375, 0)
   }
 
   def stroke(shape: Shape): Unit = {

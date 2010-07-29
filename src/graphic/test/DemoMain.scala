@@ -5,6 +5,7 @@ import com.jogamp.opengl.util.{Animator, FPSAnimator}
 import javax.media.opengl.{GL, GL2, GLAutoDrawable, GLCapabilities, GLEventListener, GLProfile}
 import javax.media.opengl.awt.{GLCanvas => JOGLCanvas}
 import java.awt._
+import javax.swing.JFrame
 
 object DemoMain {
   val RendererPrefix = "-renderer:"
@@ -31,8 +32,9 @@ object DemoMain {
     val backend = backendFlag.drop(RendererPrefix.length).toLowerCase
     backends.get(backend) match {
       case Some(b) => 
-        println("running demo '"+ demoId +"' with "+ backend +" backend")
-        b.launch(demo)
+        val title = demoId +" with "+ backend +" backend"
+        println("running demo "+ title)
+        b.launch(demo, title)
       case _ => 
         println("Renderer "+ backend +" not found. Available renderers are: "+ backends.keys.mkString(", "))
     }
@@ -40,12 +42,12 @@ object DemoMain {
 }
 
 trait Launcher {
-  def launch(demo: Demo)
+  def launch(demo: Demo, title: String)
 }
 
 object GLAWTLauncher extends Launcher {
-  def launch(demo: Demo) {
-    val frame = new Frame
+  def launch(demo: Demo, title: String) {
+    val frame = new JFrame(title)
     val profile = GLProfile.getDefault
     val caps = new GLCapabilities(profile)
     caps.setHardwareAccelerated(true)
@@ -58,7 +60,7 @@ object GLAWTLauncher extends Launcher {
     joglCanvas.addGLEventListener(new OGLEventListener(demo))
     frame.add(joglCanvas)
     frame.setSize(500, 500)
-    //frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
     joglCanvas.requestFocusInWindow()
     frame.setVisible(true)
 
@@ -100,13 +102,13 @@ object GLAWTLauncher extends Launcher {
 }
 
 object Java2DLauncher extends Launcher {
-  def launch(demo: Demo) {
-    val frame = new javax.swing.JFrame
+  def launch(demo: Demo, title: String) {
+    val frame = new JFrame(title)
     val comp = new CanvasComponent(demo)
     frame.add(comp)
     frame.setSize(500, 500)
     
-    //frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
     comp.requestFocusInWindow()
     frame.setVisible(true)
   }
