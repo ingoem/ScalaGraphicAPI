@@ -1,7 +1,7 @@
 package graphic
 package test
 
-import com.sun.opengl.util.texture.{Texture, TextureIO}
+import com.jogamp.opengl.util.texture.{Texture, TextureIO}
 import java.io.IOException
 import java.io.InputStream
 

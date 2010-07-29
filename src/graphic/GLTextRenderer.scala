@@ -3,7 +3,7 @@ package graphic
 import java.awt.{Font, Shape}
 import java.awt.geom.{PathIterator, Path2D}
 import java.util.ArrayList
-import com.sun.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
+import com.jogamp.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
 import javax.media.opengl.GL
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 

@@ -26,7 +26,6 @@ class Java2DCanvas(private[graphic] var g: Graphics2D, var width: Int, var heigh
     g.setTransform(new AffineTransform)
     g.clearRect(0, 0, width, height)
     g.setTransform(oldTransform)
-    g.drawRect(1,1,width-5,height-5)
   }
   def stroke(shape: Shape) = g.draw(shape)
  

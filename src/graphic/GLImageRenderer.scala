@@ -1,7 +1,7 @@
 
 package graphic
 
-import com.sun.opengl.util.texture.Texture
+import com.jogamp.opengl.util.texture.Texture
 import javax.media.opengl._
 
 trait GLImageRenderer { self: GLCanvas =>

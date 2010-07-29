@@ -1,7 +1,7 @@
 package graphic
 package test
 
-import com.sun.opengl.util.{Animator, FPSAnimator}
+import com.jogamp.opengl.util.{Animator, FPSAnimator}
 import javax.media.opengl.{GL, GL2, GLAutoDrawable, GLCapabilities, GLEventListener, GLProfile}
 import javax.media.opengl.awt.{GLCanvas => JOGLCanvas}
 import java.awt._
@@ -12,7 +12,7 @@ object DemoMain {
                      "java2d" -> Java2DLauncher)
   val demos: Map[String, Demo] = Map("nil" -> NilDemo, 
       "stroke" -> StrokeDemo, 
-      "dash" -> DashDemo, 
+      "linedash" -> LineDashDemo, 
       "simple" -> SimpleDemo, 
       "linecount" -> LineCountDemo,
       "rectcount" -> RectCountDemo,
