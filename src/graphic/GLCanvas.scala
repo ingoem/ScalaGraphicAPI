@@ -25,14 +25,20 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   private val tessellator = new Tessellator(builder)
   private val stroker = new Stroker(builder)
   
- // private val shapeStore = new ArrayList[Shape]
- // private val vertsStore = new ArrayList[FloatBuffer]
-  private val tessellationCache = new HashMap[Shape, FloatBuffer]()
-  
-  private val TESS_STORE_LIMIT = 6
+  //private val tessellationCache = new HashMap[Shape, FloatBuffer]()      
+
+  private var _shader: Shader = null
+  def shader: Shader = _shader
+  def shader_=(s: Shader) {
+    if(s != null){
+      _shader = s
+      _shader.applyShader
+    } else {
+      gl.glUseProgram(0)
+    }
+  }
 
   private var _stroke = new BasicStroke
-
   def stroke: BasicStroke = _stroke
   def stroke_=(s: BasicStroke) {
     val w = s.getLineWidth
@@ -79,10 +85,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     gl2.glEnable(GL.GL_BLEND)
 
     gl2.glEnableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
-
-    // VBO initialization
-    gl.glGenBuffers(1, bufferId, 0)
-    resizeVBO()
+    initVBO()
 
     gl2.glColor3f(0, 0, 0)
   }
@@ -109,8 +112,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
       gl.glStencilFunc(GL.GL_EQUAL, uniqueStencilValue1, ~0)
       gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_ZERO)
 
-      if(stroke.getDashArray != null) {
-        //strokeShape_1(shape)
+      if(stroke.getDashArray != null) {        
         stroker.stroke(shape, stroke, false) // when dash
       } else {
         stroker.stroke(shape, stroke, true) // when no dash
@@ -128,9 +130,6 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     shape match {
       case _ : Rectangle2D | _ : RoundRectangle2D | _ : Ellipse2D =>
         tessellator.tessellateConvex(shape)
-      case arc: Arc2D =>
-        if(arc.getArcType == Arc2D.OPEN) arc.setArcType(Arc2D.CHORD) // FIXME: we are changing the arc type here!!!
-        tessShape(shape, false)
       case _ => 
         tessShape(shape, false)
     }
@@ -160,27 +159,9 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     }
   }
 
-  // TODO: I am using the Shape.equals method now, which is overridden in simple subclasses 
-  // but not Path2D
-  // What was the reason to iterate over the path?
-  /*private def compareShapes(s1: Shape, s2: Shape): Boolean = {
-    val point1 = new Array[Float](6)
-    val point2 = new Array[Float](6)
-    val p1 = s1.getPathIterator(null, 1.0)
-    val p2 = s2.getPathIterator(null, 1.0)
-    while(!p1.isDone && !p2.isDone){
-      p1.currentSegment(point1)
-      p2.currentSegment(point2)
-      if( !(point1(0) == point2(0) && point1(1) == point2(1)))
-        return false
-        p1.next
-        p2.next
-    }
-    if(!(p1.isDone && p2.isDone)) false
-    else true
-  }*/
-
   private def tessShape(shape: Shape, doCache: Boolean)  {
+    tessellator.tessellate(shape, doCache)
+    /*
     if (tessellationCache contains shape) {
       val cachedCoords = tessellationCache(shape)
       builder.rewind()
@@ -188,15 +169,12 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     } else {
       tessellator.tessellate(shape)
 
-      if(doCache && tessellationCache.size <= TESS_STORE_LIMIT) {
+      if(doCache && tessellationCache.size <= tessellator.TESS_STORE_LIMIT) {
         tessellationCache(shape) = builder.coordData
         builder.newCoordData
       }
     }
-
-    //vertsNum = gvi/2
-    //gvi = 0
-    //ind = 0
+    */
   }
 
   def clear(c: Color): Unit = {
@@ -210,13 +188,17 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     this.fill(new Rectangle2D.Float(0, 0, width, height))
     gl.glDisable(GL.GL_STENCIL_TEST)
     gl.glEnable(GL.GL_BLEND)
+    gl.glColor4f(_color.getRed/255f, _color.getGreen/255f, _color.getBlue/255f, _color.getAlpha/255f)
+    tessellator.clearSkipArray()
   }
 
   def deinit() {
     gl.glDeleteBuffers(1, bufferId, 0)
   }
 
-  private def resizeVBO() {
+
+  private def initVBO() {
+    gl.glGenBuffers(1, bufferId, 0)
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
     gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
     gl.glBufferData(GL.GL_ARRAY_BUFFER, 4*builder.size, null, GL.GL_DYNAMIC_DRAW)
@@ -229,6 +211,11 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     // tremendous speedup on Ingo's MBP
     // no effect on performance on Dariusz's WinXP/ATI box or Ingo's Win7/ION netbook
     //gl.glBufferData(GL.GL_ARRAY_BUFFER, 8*count, null, GL.GL_DYNAMIC_DRAW)
+
+    /**
+     * on XP it is speed up only when contex is released in each frame,
+     * otherwise glBufferSubData is faster
+     */
     
     gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
     gl.glBufferData(GL.GL_ARRAY_BUFFER, 8*count, builder.coordData, GL.GL_DYNAMIC_DRAW)

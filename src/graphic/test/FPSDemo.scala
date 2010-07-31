@@ -38,9 +38,10 @@ trait FPSDemo extends Demo {
     if (secs >= 1.0) { // measure fps each 1/10th sec
       val fps = frameCount/secs
       fpsLog += fps
-      fpsCounter += fps - fpsLog(fpsLog.size-6)
-      val avg = fpsCounter / 5
-      log("Fps: "+ fps.toFloat +", Avg: "+ avg.toFloat)// +", Avg(last 10): "+ meanFPS(100).toFloat)
+      val count = fpsLog.size
+      fpsCounter += fps - (if(count > 10) fpsLog(count-11) else 0)
+      val avg = fpsCounter / 10
+      log("Fps: "+ fps.toFloat +", Avg(10s): "+ avg.toFloat)
       // reset:
       t0 = t1
       frameCount = 0

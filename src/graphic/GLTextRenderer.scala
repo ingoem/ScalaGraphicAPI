@@ -24,11 +24,11 @@ trait GLTextRenderer { canvas: GLCanvas =>
   def font_=(f: Font) {
     _font = f
     if(renderer.getFont != f || useFractionalMetrics || antialiasedFont) { // TODO: why these tests?
-  
+      /**
+       * apperance of font change as well according to those parameters;
+       * use could change it somewher in loop, those parameters can be ste by user
+       */
       cacheRenderer(renderer, f)
-//      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
-//      _useFractionalMetrics = useFractionalMetrics
-//      _antialiased = antialiasedFont
     }
   }
   private var _antialiased = true
@@ -57,46 +57,29 @@ trait GLTextRenderer { canvas: GLCanvas =>
       renderer = new JOGLTextRenderer(f, true, true)
       if(fontStore.size < REND_CACHE_LIMIT){
         fontStore.add(f)
-        rendStore.add(renderer)
-        //println("new renderer add")
+        rendStore.add(renderer)        
       }
     }
   }
 
   def drawText(text: String, x: Int, y: Int): Unit = {
     // TODO: what is the anchoring code doing here?
-    var w = anchorW
-    if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
-      anchorW match {
-        case ANCH_LEFT => w = 0
-        case ANCH_RIGHT =>
-          w = (renderer.getBounds(text)).getWidth.toInt
-        case ANCH_MID =>
-          w = (renderer.getBounds(text)).getWidth.toInt / 2
-      }
-    }
+    /**
+     * sets text in correct position, but ther doesnt need to be anchoring at all
+     */
+    val w = setAnchorW(text)
+    val h = setAnchorH(text)
 
-    var h = anchorH
-    if(anchorH >= Int.MinValue+2 && anchorH <= Int.MinValue+4) {
-      anchorH match {
-        case ANCH_BOT => h = 0
-        case ANCH_TOP =>
-          h = (renderer.getBounds(text)).getHeight.toInt
-        case ANCH_MID =>
-          h = (renderer.getBounds(text)).getHeight.toInt / 2
-      }
-    }
     gl.glPushMatrix
     renderer.beginRendering(canvas.width, canvas.height)
-    gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
-    //gl.getGL2().glLoadIdentity()
+    gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)    
     gl.glTranslatef(x, canvas.height-y, 0)
     renderer.setColor(color)
     renderer.draw(text, 0, 0)
     renderer.endRendering
     gl.glPopMatrix
 
-    // binds again GLCanvas buffer
+    /* binds again main graphic buffer */
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 
@@ -106,28 +89,13 @@ trait GLTextRenderer { canvas: GLCanvas =>
   }
 
   // TODO: major code duplication with the other drawText method
-  def drawText(text: String, x: Int, y: Int, angle: Float): Unit = {
-    var w = anchorW
-    if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
-      anchorW match {
-        case ANCH_LEFT => w = 0
-        case ANCH_RIGHT =>
-          w = (renderer.getBounds(text)).getWidth.intValue
-        case ANCH_MID =>
-          w = (renderer.getBounds(text)).getWidth.intValue / 2
-      }
-    }
 
-    var h = anchorH
-    if(anchorH >= Int.MinValue+2 && anchorH <= Int.MinValue+4) {
-      anchorH match {
-        case ANCH_BOT => h = 0
-        case ANCH_TOP =>
-          h = (renderer.getBounds(text)).getHeight.intValue
-        case ANCH_MID =>
-          h = (renderer.getBounds(text)).getHeight.intValue / 2
-      }
-    }
+  /**
+   * done
+   */
+  def drawText(text: String, x: Int, y: Int, angle: Float): Unit = {
+    val w = setAnchorW(text)
+    val h = setAnchorH(text)
 
     gl.glPushMatrix
     renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
@@ -141,12 +109,43 @@ trait GLTextRenderer { canvas: GLCanvas =>
     renderer.endRendering
     gl.glPopMatrix
 
-        // binds again GLCanvas buffer
+     /* binds again main graphic buffer */
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
+  }
+
+  private def setAnchorW(text: String): Int = {
+    var w = anchorW
+    if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
+      anchorW match {
+        case ANCH_LEFT => w = 0
+        case ANCH_RIGHT =>
+          w = (renderer.getBounds(text)).getWidth.intValue
+        case ANCH_MID =>
+          w = (renderer.getBounds(text)).getWidth.intValue / 2
+      }      
+    }
+    return w
+  }
+
+  private def setAnchorH(text: String): Int =  {
+    var h = anchorH
+    if(anchorH >= Int.MinValue+2 && anchorH <= Int.MinValue+4) {
+      anchorH match {
+        case ANCH_BOT => h = 0
+        case ANCH_TOP =>
+          h = (renderer.getBounds(text)).getHeight.intValue
+        case ANCH_MID =>
+          h = (renderer.getBounds(text)).getHeight.intValue / 2
+      }
+    }
+    return h
   }
 
   private def pathLength(path: Path2D): Float = {
     val iter = path.getPathIterator(null, 1.0) // TODO: flatness 1.0 okay?
+    /**
+     * for sure, it is not visible, only sets character in corect position
+     */
     val point = new Array[Float](6)
     var prevX = 0.0f; var prevY = 0.0f
     var len = 0.0f
@@ -232,7 +231,7 @@ trait GLTextRenderer { canvas: GLCanvas =>
     }
     renderer.endRendering
 
-    // binds again GLCanvas buffer
+    /* binds again main graphic buffer */
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 }
